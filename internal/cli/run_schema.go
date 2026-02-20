@@ -2,6 +2,8 @@ package cli
 
 import "time"
 
+const runSchemaVersion = 1
+
 // Run is one CI workflow execution for a commit.
 type Run struct {
 	Version   int               `json:"v"`

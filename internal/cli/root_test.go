@@ -29,7 +29,6 @@ func TestStubSubcommandsShowHelp(t *testing.T) {
 		{name: "ingest", args: []string{"ingest"}},
 		{name: "report", args: []string{"report"}},
 		{name: "prune", args: []string{"prune"}},
-		{name: "init", args: []string{"init"}},
 	}
 
 	for _, tc := range tests {
