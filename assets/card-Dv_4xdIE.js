@@ -1,0 +1,1 @@
+import{j as s}from"./index-rWMCawqj.js";import{c as a}from"./history-DxAId7T8.js";function d({className:r,...o}){return s.jsx("div",{className:a("rounded-xl border border-gray-200 bg-white shadow-sm",r),...o})}export{d as C};
