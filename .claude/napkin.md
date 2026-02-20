@@ -41,3 +41,4 @@
 - Commit and push after every completed task.
 | 2026-02-20 | self | Used "CAN" label instead of "Cairn" in UI copy | Keep product naming exact: always "Cairn" |
 | 2026-02-20 | user | Prioritized shell likeness over content requirements | Start from content structure first (Helm-style sections/cards), then refine shell |
+| 2026-02-20 | user | Added irrelevant domain nav labels (Kanban/Planning/Stats) | Keep Cairn report IA domain-specific: Overview, Pull Requests, Runs, Trends |
