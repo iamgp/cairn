@@ -7,6 +7,7 @@ export type RunItem = {
   message?: string
   stdout?: string
   stderr?: string
+  tags?: string[]
 }
 
 export type RunCheck = {
