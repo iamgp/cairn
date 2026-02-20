@@ -44,7 +44,7 @@ function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">CAN Checks Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Cairn Checks Dashboard</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">{summary.total} runs in current view</p>
       </div>
 
