@@ -1,10 +1,15 @@
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router'
 
-const nav = [
-  { to: '/', label: 'Overview' },
-  { to: '/pr', label: 'Pull Requests' },
-  { to: '/run', label: 'Runs' },
-  { to: '/trends', label: 'Analytics' },
+const navGroups = [
+  {
+    label: 'General',
+    items: [
+      { to: '/', label: 'Overview' },
+      { to: '/pr', label: 'Pull Requests' },
+      { to: '/run', label: 'Runs' },
+      { to: '/trends', label: 'Analytics' },
+    ],
+  },
 ]
 
 export const Route = createRootRoute({
@@ -13,42 +18,40 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <main className="grid min-h-screen w-full grid-cols-1 bg-slate-100 lg:grid-cols-[220px_1fr]">
-      <aside className="border-r border-slate-200 bg-white p-4">
-        <div className="mb-5 border-b border-slate-200 pb-4">
+    <main className="grid min-h-screen w-full grid-cols-1 bg-[#f7f8fa] lg:grid-cols-[240px_1fr]">
+      <aside className="border-r border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-4 py-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cairn</p>
-          <h1 className="mt-1 text-lg font-bold text-slate-900">Quality Console</h1>
+          <h1 className="text-base font-semibold text-slate-900">Planner</h1>
         </div>
-        <nav className="grid gap-1">
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeProps={{ className: 'bg-slate-900 text-white' }}
-              className="px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-            >
-              {item.label}
-            </Link>
+
+        <div className="px-3 py-4">
+          {navGroups.map((group) => (
+            <section key={group.label} className="mb-5">
+              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
+              <nav className="grid gap-0.5">
+                {group.items.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    activeProps={{ className: 'bg-slate-900 text-white' }}
+                    className="rounded-md px-2.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            </section>
           ))}
-        </nav>
-        <div className="mt-8 text-xs text-slate-500">
-          <p>Published via</p>
-          <p className="font-semibold text-slate-700">gh-pages</p>
         </div>
       </aside>
 
-      <section className="grid grid-rows-[auto_1fr]">
-        <header className="border-b border-slate-200 bg-white px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operations</p>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Pipeline Dashboard</h2>
-            </div>
-            <p className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-              Live from `history.ndjson`
-            </p>
-          </div>
+      <section className="grid grid-rows-[56px_1fr]">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4">
+          <p className="text-sm font-medium text-slate-800">Runs / Overview</p>
+          <p className="text-xs text-slate-500">Source: history.ndjson</p>
         </header>
+
         <div className="p-4">
           <Outlet />
         </div>

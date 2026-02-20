@@ -12,7 +12,7 @@ const buttonVariants = cva(
         ghost: 'text-slate-700 hover:bg-slate-100',
       },
       size: {
-        default: 'h-10 px-4 py-2',
+        default: 'h-9 px-4 py-2',
         sm: 'h-8 px-3 text-xs',
       },
     },
