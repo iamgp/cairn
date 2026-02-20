@@ -41,11 +41,13 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p demo-artifacts
-          uv run --project demo/uv-demo pytest --junitxml demo-artifacts/pytest-junit.xml
+          PYTHONPATH=demo/uv-demo/src \
+            uv run --project demo/uv-demo pytest --junitxml demo-artifacts/pytest-junit.xml
 
       - name: Run ruff (JSON)
         run: |
-          uv run --project demo/uv-demo ruff check demo/uv-demo/src --output-format json --output-file demo-artifacts/ruff-results.json
+          PYTHONPATH=demo/uv-demo/src \
+            uv run --project demo/uv-demo ruff check demo/uv-demo/src --output-format json --output-file demo-artifacts/ruff-results.json
 
       - name: Build Cairn run record
         run: |
