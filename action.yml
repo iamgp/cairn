@@ -124,6 +124,11 @@ runs:
       shell: bash
       run: cairn ingest "${{ inputs.ingest-file }}" --pages-dir "${{ github.workspace }}/gh-pages"
 
+    - name: Setup Node for web report
+      uses: actions/setup-node@v4
+      with:
+        node-version: "24"
+
     - name: Build report web assets
       shell: bash
       run: |
@@ -134,7 +139,7 @@ runs:
 
         if [ -f "${action_root}/web/package.json" ]; then
           cd "${action_root}/web"
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
           cp -R .output/public/. "${pages_dir}/"
         else
