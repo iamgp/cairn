@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { FilterBar } from '../components/filter-bar'
 import { StatusBadge } from '../components/status-badge'
@@ -23,52 +23,74 @@ function PRPage() {
     return Array.from(map.entries()).sort((a, b) => b[0] - a[0])
   }, [filtered])
 
+  if (loading) {
+    return <Card className="m-4 p-6 text-sm text-gray-600 sm:m-6 lg:m-8">Loading history...</Card>
+  }
+
+  if (error) {
+    return <Card className="m-4 p-6 text-sm text-rose-700 sm:m-6 lg:m-8">Failed to load history: {error}</Card>
+  }
+
   return (
-    <section className="grid gap-4">
-      <FilterBar
-        filters={filters}
-        options={options}
-        onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
-        onReset={() => setFilters(defaultFilters)}
-      />
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pull Request Runs</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{groups.length} PR groups in current view</p>
+      </div>
 
-      {loading && <Card className="p-6 text-sm text-gray-600">Loading history...</Card>}
-      {error && <Card className="p-6 text-sm text-rose-700">Failed to load history: {error}</Card>}
+      <div className="mb-6">
+        <FilterBar
+          filters={filters}
+          options={options}
+          onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+          onReset={() => setFilters(defaultFilters)}
+        />
+      </div>
 
-      {!loading && !error && groups.length === 0 && (
+      {groups.length === 0 ? (
         <Card className="p-6 text-sm text-gray-600">No PR runs found with current filters.</Card>
-      )}
+      ) : (
+        <div className="space-y-4">
+          {groups.map(([pr, prRuns]) => (
+            <Card key={pr} className="p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">PR #{pr}</h2>
+                  <StatusBadge status={runStatus(prRuns[0])} />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{prRuns.length} run{prRuns.length === 1 ? '' : 's'}</p>
+              </div>
 
-      {!loading && !error && groups.map(([pr, prRuns]) => (
-        <Card key={pr} className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xl font-black">PR #{pr}</h3>
-            <StatusBadge status={runStatus(prRuns[0])} />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-600">
-                <tr>
-                  <th className="px-3 py-2">Run</th>
-                  <th className="px-3 py-2">Timestamp</th>
-                  <th className="px-3 py-2">SHA</th>
-                  <th className="px-3 py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
+              <div className="space-y-2 border-l border-gray-200 pl-3 dark:border-gray-700">
                 {prRuns.map((run) => (
-                  <tr key={run.run_id} className="border-t border-gray-100">
-                    <td className="px-3 py-2 font-medium">{run.run_id}</td>
-                    <td className="px-3 py-2">{run.timestamp}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{run.sha}</td>
-                    <td className="px-3 py-2"><StatusBadge status={runStatus(run)} /></td>
-                  </tr>
+                  <Link
+                    key={`${pr}-${run.run_id}-${run.timestamp}`}
+                    to="/run"
+                    search={{ run: run.run_id }}
+                    className="block rounded-md border border-gray-200 bg-gray-50 p-3 transition hover:border-blue-300 hover:bg-white dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-700"
+                  >
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{run.run_id}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(run.timestamp)}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                      <span className="rounded-full border border-gray-200 px-2 py-0.5 dark:border-gray-700">{run.branch || 'no branch'}</span>
+                      <span className="rounded-full border border-gray-200 px-2 py-0.5 dark:border-gray-700">{run.sha ? run.sha.slice(0, 8) : 'no sha'}</span>
+                      <StatusBadge status={runStatus(run)} />
+                    </div>
+                  </Link>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ))}
-    </section>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   )
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
 }
