@@ -1,42 +1,60 @@
-name: Cairn Example
+name: Cairn Demo (uv + pytest + ruff)
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
   workflow_dispatch:
 
 jobs:
   checks:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
-      - run: ruff check --output-format json --output-file ruff-results.json
-      - run: ty check --output json > ty-results.json
-      - name: Build run record JSON
+          python-version: '3.12'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install demo dependencies
+        run: uv sync --project demo/uv-demo --group dev
+
+      - name: Run pytest (JUnit XML)
+        continue-on-error: true
         run: |
-          cat > run-record.json <<'JSON'
-          {
-            "v": 1,
-            "run_id": "${{ github.run_id }}-${{ matrix.python-version }}",
-            "sha": "${{ github.sha }}",
-            "sha_full": "${{ github.sha }}",
-            "branch": "${{ github.ref_name }}",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "matrix": {"python": "${{ matrix.python-version }}"},
-            "checks": []
-          }
-          JSON
+          mkdir -p demo-artifacts
+          uv run --project demo/uv-demo pytest --junitxml demo-artifacts/pytest-junit.xml
+
+      - name: Run ruff (JSON)
+        run: |
+          uv run --project demo/uv-demo ruff check demo/uv-demo/src --output-format json --output-file demo-artifacts/ruff-results.json
+
+      - name: Build Cairn run record
+        run: |
+          mkdir -p bin
+          go build -o ./bin/cairn ./
+          ./bin/cairn collect \
+            --config demo/uv-demo/cairn.toml \
+            --out demo-artifacts/run-record.json \
+            --run-id "${{ github.run_id }}-py312" \
+            --sha-full "${{ github.sha }}" \
+            --branch "${{ github.ref_name }}" \
+            --matrix "python=3.12"
+
       - uses: actions/upload-artifact@v4
         with:
-          name: cairn-run-${{ matrix.python-version }}
-          path: run-record.json
+          name: cairn-run
+          path: demo-artifacts/run-record.json
 
   cairn:
     needs: checks
@@ -51,4 +69,4 @@ jobs:
           path: cairn-inputs
       - uses: iamgp/cairn@v1
         with:
-          ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
+          ingest-file: cairn-inputs/cairn-run/run-record.json

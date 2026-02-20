@@ -4,7 +4,7 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 
 ## What It Includes
 
-- CLI commands: `ingest`, `report`, `comment`, `prune`, `init`
+- CLI commands: `collect`, `ingest`, `report`, `comment`, `prune`, `init`
 - Built-in adapters: `junit_xml`, `ruff_json`, `ty_json`, `generic_json`
 - Composite action in `action.yml` for CI ingestion into `gh-pages`
 
@@ -27,9 +27,10 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 4. Use the reusable action in your workflow:
 
    ```yaml
+   - run: cairn collect --config cairn.toml --out run-record.json
    - uses: iamgp/cairn@v1
      with:
-       ingest-file: path/to/run-record.json
+       ingest-file: run-record.json
    ```
 
 ## Configuration

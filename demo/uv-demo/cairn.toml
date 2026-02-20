@@ -1,0 +1,21 @@
+[project]
+name = "cairn-uv-demo"
+
+[history]
+max_days = 0
+max_runs = 0
+
+[pr_comment]
+enabled = true
+show_coverage = false
+show_per_matrix = true
+
+[[checkers]]
+id = "pytest"
+adapter = "junit_xml"
+input = "demo-artifacts/pytest-junit.xml"
+
+[[checkers]]
+id = "ruff"
+adapter = "ruff_json"
+input = "demo-artifacts/ruff-results.json"

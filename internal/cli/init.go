@@ -48,7 +48,7 @@ Cairn keeps a long-running quality history for your repository and publishes a r
 
 2. Adjust checker inputs in ` + "`cairn.toml`" + ` to match your CI artifact names.
 3. Commit the scaffolded files.
-4. Run your CI workflow. Each run should produce a run record JSON file.
+4. Run your CI workflow. Use ` + "`cairn collect`" + ` to build a run record from checker outputs.
 5. Feed that run record into the Cairn GitHub Action to append history and publish the report.
 
 ## cairn.toml Reference
@@ -104,23 +104,19 @@ Copy and adapt this workflow for your repository:
             with:
               python-version: ${{ matrix.python-version }}
           - run: pip install -e ".[dev]"
+          - run: go install github.com/iamgp/cairn@latest
           - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
           - run: ruff check --output-format json --output-file ruff-results.json
           - run: ty check --output json > ty-results.json
           - name: Build run record JSON
             run: |
-              cat > run-record.json <<'JSON'
-              {
-                "v": 1,
-                "run_id": "${{ github.run_id }}-${{ matrix.python-version }}",
-                "sha": "${{ github.sha }}",
-                "sha_full": "${{ github.sha }}",
-                "branch": "${{ github.ref_name }}",
-                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-                "matrix": {"python": "${{ matrix.python-version }}"},
-                "checks": []
-              }
-              JSON
+              cairn collect \
+                --config cairn.toml \
+                --out run-record.json \
+                --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
+                --sha-full "${{ github.sha }}" \
+                --branch "${{ github.ref_name }}" \
+                --matrix "python=${{ matrix.python-version }}"
           - uses: actions/upload-artifact@v4
             with:
               name: cairn-run-${{ matrix.python-version }}
@@ -233,23 +229,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - run: go install github.com/iamgp/cairn@latest
       - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
       - run: ruff check --output-format json --output-file ruff-results.json
       - run: ty check --output json > ty-results.json
       - name: Build run record JSON
         run: |
-          cat > run-record.json <<'JSON'
-          {
-            "v": 1,
-            "run_id": "${{ github.run_id }}-${{ matrix.python-version }}",
-            "sha": "${{ github.sha }}",
-            "sha_full": "${{ github.sha }}",
-            "branch": "${{ github.ref_name }}",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "matrix": {"python": "${{ matrix.python-version }}"},
-            "checks": []
-          }
-          JSON
+          cairn collect \
+            --config cairn.toml \
+            --out run-record.json \
+            --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
+            --sha-full "${{ github.sha }}" \
+            --branch "${{ github.ref_name }}" \
+            --matrix "python=${{ matrix.python-version }}"
       - uses: actions/upload-artifact@v4
         with:
           name: cairn-run-${{ matrix.python-version }}
