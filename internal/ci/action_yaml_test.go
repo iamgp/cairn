@@ -25,6 +25,8 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"using: \"composite\"",
 		"uses: actions/checkout@v4",
 		"ref: ${{ inputs.gh-pages-branch }}",
+		"continue-on-error: true",
+		"Bootstrap missing gh-pages branch",
 		"RUNNER_OS",
 		"RUNNER_ARCH",
 		"release_repo=\"iamgp/cairn\"",

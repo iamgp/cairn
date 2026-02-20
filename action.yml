@@ -22,9 +22,18 @@ runs:
   using: "composite"
   steps:
     - name: Checkout gh-pages branch
+      id: checkout-pages
+      continue-on-error: true
       uses: actions/checkout@v4
       with:
         ref: ${{ inputs.gh-pages-branch }}
+        path: gh-pages
+        fetch-depth: 0
+
+    - name: Bootstrap missing gh-pages branch
+      if: ${{ steps.checkout-pages.outcome == 'failure' }}
+      uses: actions/checkout@v4
+      with:
         path: gh-pages
         fetch-depth: 0
 
