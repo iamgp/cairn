@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { DataTable } from '../components/data-table'
 import { StatusBadge } from '../components/status-badge'
@@ -23,7 +23,7 @@ function RunsPage() {
 
   if (search.run) {
     const run = runs.find((r) => r.run_id === search.run)
-    if (run) return <RunDetailPage run={run} />
+    if (run) return <RunDetailPage run={run} allRuns={runs} />
   }
 
   return <RunListPage runs={runs} />
@@ -123,11 +123,46 @@ function RunListPage({ runs }: { runs: RunRecord[] }) {
 
 // ─── Run Detail Page ────────────────────────────────────────────────────────
 
-function RunDetailPage({ run }: { run: RunRecord }) {
+function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) {
   const status = runStatus(run)
   const checks = run.checks || []
   const passedChecks = checks.filter((c) => c.status === 'passed').length
   const failedChecks = checks.filter((c) => ['failed', 'error'].includes(c.status?.toLowerCase())).length
+
+  const matrixGrid = useMemo(() => {
+    if (!run.matrix || Object.keys(run.matrix).length === 0) return null
+
+    const sha = run.sha_full || run.sha
+    const siblings = allRuns.filter((r) => {
+      if ((r.sha_full || r.sha) !== sha) return false
+      return r.matrix && Object.keys(r.matrix).length > 0
+    })
+
+    if (siblings.length <= 1) return null
+
+    const allCheckers = new Set<string>()
+    for (const r of siblings) {
+      for (const c of r.checks || []) allCheckers.add(c.tool)
+    }
+
+    const dimensionKeys = Object.keys(run.matrix)
+    const matrixLabel = dimensionKeys.join(', ')
+
+    const rows = siblings.map((r) => {
+      const configLabel = dimensionKeys.map((k) => r.matrix?.[k] ?? '-').join(', ')
+      const checkerStatuses = new Map<string, string>()
+      for (const c of r.checks || []) {
+        checkerStatuses.set(c.tool, (c.status || '').toLowerCase())
+      }
+      return {
+        configLabel,
+        checkerStatuses,
+        isCurrent: r.run_id === run.run_id,
+      }
+    })
+
+    return { matrixLabel, checkers: Array.from(allCheckers).sort(), rows }
+  }, [run, allRuns])
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -173,6 +208,80 @@ function RunDetailPage({ run }: { run: RunRecord }) {
         <MetaCard label="Duration" value={`${runDuration(run).toFixed(1)}s`} />
         <MetaCard label="Timestamp" value={new Date(run.timestamp).toLocaleString()} />
       </div>
+
+      {/* Matrix Configuration */}
+      {run.matrix && Object.keys(run.matrix).length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Matrix Configuration</h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(run.matrix).map(([key, value]) => (
+              <span key={key} className="text-xs px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 font-mono">
+                {key}: {value}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Matrix Grid */}
+      {matrixGrid && (
+        <div className="mb-6">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Matrix Results
+            <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+              ({matrixGrid.matrixLabel})
+            </span>
+          </h2>
+          <div className="border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-800">
+                  <th className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Config</th>
+                  {matrixGrid.checkers.map((checker) => (
+                    <th key={checker} className="text-center px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 font-mono">{checker}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrixGrid.rows.map((row) => (
+                  <tr
+                    key={row.configLabel}
+                    className={cn(
+                      'border-b border-gray-100 dark:border-gray-800/50 last:border-0',
+                      row.isCurrent && 'bg-blue-50/50 dark:bg-blue-950/20',
+                    )}
+                  >
+                    <td className="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">
+                      {row.configLabel}
+                      {row.isCurrent && (
+                        <span className="ml-2 text-[10px] text-blue-600 dark:text-blue-400">← current</span>
+                      )}
+                    </td>
+                    {matrixGrid.checkers.map((checker) => {
+                      const s = row.checkerStatuses.get(checker)
+                      return (
+                        <td key={checker} className="px-3 py-2 text-center">
+                          {s == null ? (
+                            <span className="text-gray-300 dark:text-gray-600">—</span>
+                          ) : (
+                            <span className={cn(
+                              'inline-block w-2.5 h-2.5 rounded-full',
+                              s === 'passed' ? 'bg-emerald-500' :
+                              s === 'skipped' ? 'bg-amber-500' :
+                              ['failed', 'error'].includes(s) ? 'bg-rose-500' :
+                              'bg-gray-400',
+                            )} />
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Checks */}
       {checks.length === 0 ? (

@@ -74,13 +74,78 @@ func TestCommentCommandWritesOutputFile(t *testing.T) {
 	assertContains(t, content, "### Cairn Quality Report")
 	assertContains(t, content, "**Commit:** `abc1234`")
 	assertContains(t, content, "[View full report](https://example.test/cairn)")
-	assertContains(t, content, "| ruff | failed | 1 |")
+	assertContains(t, content, "| ruff | failed | 0 | 1 | 1 |")
+}
+
+func TestRenderPRCommentWithCounts(t *testing.T) {
+	t.Parallel()
+
+	run := Run{
+		RunID:   "run-counts",
+		SHAFull: "abcdef1234567",
+		Checks: []Check{
+			{
+				Tool:   "pytest",
+				Status: "failed",
+				Items: []Item{
+					{ID: "test_a", Status: "passed"},
+					{ID: "test_b", Status: "passed"},
+					{ID: "test_c", Status: "failed"},
+				},
+			},
+		},
+	}
+
+	content := renderPRComment(run, "", nil)
+	assertContains(t, content, "| pytest | failed | 2 | 1 | 3 |")
+	assertContains(t, content, "✅ Passed")
+	assertContains(t, content, "❌ Failed")
+}
+
+func TestRenderPRCommentWithBaseline(t *testing.T) {
+	t.Parallel()
+
+	baseline := Run{
+		Branch: "main",
+		Checks: []Check{
+			{
+				Tool: "pytest",
+				Items: []Item{
+					{ID: "test_a", Status: "passed"},
+					{ID: "test_b", Status: "failed"},
+					{ID: "test_c", Status: "passed"},
+				},
+			},
+		},
+	}
+
+	run := Run{
+		RunID:   "run-baseline",
+		SHAFull: "abcdef1234567",
+		Checks: []Check{
+			{
+				Tool:   "pytest",
+				Status: "failed",
+				Items: []Item{
+					{ID: "test_a", Status: "failed"},
+					{ID: "test_b", Status: "passed"},
+					{ID: "test_c", Status: "passed"},
+				},
+			},
+		},
+	}
+
+	content := renderPRComment(run, "", &baseline)
+	assertContains(t, content, "#### 🆕 New Failures (vs `main`)")
+	assertContains(t, content, "| pytest | test_a | failed |")
+	assertContains(t, content, "#### ✅ Fixed (vs `main`)")
+	assertContains(t, content, "| pytest | test_b |")
 }
 
 func TestRenderPRCommentNoChecks(t *testing.T) {
 	t.Parallel()
 
-	content := renderPRComment(Run{RunID: "run-2", SHAFull: "abcdef1234567"}, "")
+	content := renderPRComment(Run{RunID: "run-2", SHAFull: "abcdef1234567"}, "", nil)
 
 	if !strings.Contains(content, "#/run/run-2") {
 		t.Fatalf("expected default run URL, got %q", content)
