@@ -51,22 +51,6 @@ jobs:
             --branch "${{ github.ref_name }}" \
             --matrix "python=3.12"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cairn-run
-          path: demo-artifacts/run-record.json
-
-  cairn:
-    needs: checks
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: cairn-inputs
       - uses: iamgp/cairn@v0.1.0
         with:
-          ingest-file: cairn-inputs/cairn-run/run-record.json
+          ingest-file: demo-artifacts/run-record.json
