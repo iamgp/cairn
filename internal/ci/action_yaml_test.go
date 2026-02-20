@@ -34,7 +34,7 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"uses: actions/setup-node@v4",
 		"node-version: \"24\"",
 		"npm install --no-audit --no-fund",
-		"npm run build",
+		"npm run build:pages",
 		"cp -R .output/public/. \"${pages_dir}/\"",
 		"git add -A",
 		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",

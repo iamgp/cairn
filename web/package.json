@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node ./node_modules/vite/bin/vite.js dev --port 3000",
     "build": "node ./node_modules/vite/bin/vite.js build",
+    "build:pages": "node ./node_modules/vite/bin/vite.js build && node ./scripts/write-static-index.mjs",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "vitest run --passWithNoTests"
   },

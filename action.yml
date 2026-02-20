@@ -140,7 +140,7 @@ runs:
         if [ -f "${action_root}/web/package.json" ]; then
           cd "${action_root}/web"
           npm install --no-audit --no-fund
-          npm run build
+          npm run build:pages
           cp -R .output/public/. "${pages_dir}/"
         else
           cairn report --pages-dir "${pages_dir}"
