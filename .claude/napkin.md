@@ -40,3 +40,4 @@
 - Remove table-heavy report presentation; prefer Helm-style cards/timelines/section blocks.
 - Commit and push after every completed task.
 | 2026-02-20 | self | Used "CAN" label instead of "Cairn" in UI copy | Keep product naming exact: always "Cairn" |
+| 2026-02-20 | user | Prioritized shell likeness over content requirements | Start from content structure first (Helm-style sections/cards), then refine shell |
