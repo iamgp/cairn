@@ -33,6 +33,8 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          cache-dependency-glob: demo/uv-demo/uv.lock
 
       - name: Install demo dependencies
         run: uv sync --project demo/uv-demo --group dev
@@ -71,12 +73,6 @@ jobs:
           ref: gh-pages
           path: gh-pages-public
           fetch-depth: 0
-
-      - name: Rebuild report shell with current source
-        run: |
-          mkdir -p bin
-          go build -o ./bin/cairn ./
-          ./bin/cairn report --pages-dir gh-pages-public
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

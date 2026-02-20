@@ -7,6 +7,7 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 - CLI commands: `collect`, `ingest`, `report`, `comment`, `prune`, `init`
 - Built-in adapters: `junit_xml`, `ruff_json`, `ty_json`, `generic_json`
 - Composite action in `action.yml` for CI ingestion into `gh-pages`
+- Rich report frontend in `web/` (TanStack Start + shadcn-style components)
 
 ## Quickstart
 
@@ -58,3 +59,13 @@ This repo includes `.github/workflows/release.yml`.
 2. The workflow cross-compiles and uploads release assets named `cairn-<os>-<arch>.tar.gz`.
 
 Those asset names match what `action.yml` downloads.
+
+## Rich UI Development
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+For publishing, the composite action builds `web/.output/public` and copies it to the target `gh-pages` branch.

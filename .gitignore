@@ -1,1 +1,7 @@
 .cache/go-build
+__pycache__/
+*.pyc
+web/node_modules/
+web/.output/
+web/.tanstack/
+web/.nitro/

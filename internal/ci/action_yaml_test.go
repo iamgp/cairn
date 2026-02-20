@@ -31,8 +31,10 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"RUNNER_ARCH",
 		"release_repo=\"iamgp/cairn\"",
 		"cairn ingest \"${{ inputs.ingest-file }}\" --pages-dir \"${{ github.workspace }}/gh-pages\"",
-		"cairn report --pages-dir \"${{ github.workspace }}/gh-pages\"",
-		"git add history.ndjson index.html",
+		"npm ci",
+		"npm run build",
+		"cp -R .output/public/. \"${pages_dir}/\"",
+		"git add -A",
 		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",
 	}
 
