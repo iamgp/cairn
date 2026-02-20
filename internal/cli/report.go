@@ -118,7 +118,7 @@ const reportShellHTMLTemplate = `<!doctype html>
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+      font-family: "Space Grotesk", "Avenir Next", Avenir, "Segoe UI", sans-serif;
       color: var(--text);
       background:
         radial-gradient(circle at 15% -10%, #e9fffa 0%, rgba(233,255,250,0) 38%),
@@ -170,6 +170,25 @@ const reportShellHTMLTemplate = `<!doctype html>
     .nav a.active {
       border-color: var(--accent);
       background: var(--accent-soft);
+      color: #064e46;
+    }
+
+    .filter-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .reset-button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      color: var(--text);
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .reset-button:hover {
+      border-color: var(--accent);
       color: #064e46;
     }
 
@@ -347,6 +366,11 @@ const reportShellHTMLTemplate = `<!doctype html>
       font-size: 1.05rem;
     }
 
+    .pr-grid {
+      display: grid;
+      gap: 12px;
+    }
+
     .inline-metrics {
       display: flex;
       align-items: center;
@@ -431,9 +455,9 @@ const reportShellHTMLTemplate = `<!doctype html>
 
     const routes = {
       "/dashboard": { title: "Dashboard" },
-      "/pr": { title: "PR View", text: "Per-PR status and checker summaries will render here." },
+      "/pr": { title: "PR View" },
       "/run": { title: "Run Detail" },
-      "/trends": { title: "Trends", text: "Historical trend charts and aggregates will render here." },
+      "/trends": { title: "Trends" },
     };
 
     const navItems = [
@@ -631,6 +655,14 @@ const reportShellHTMLTemplate = `<!doctype html>
       const parsed = new Date(run && run.timestamp);
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     };
+
+    const runTimestampMs = (run) => {
+      const parsed = parseTimestamp(run);
+      return parsed ? parsed.getTime() : 0;
+    };
+
+    const sortRunsDesc = (runs) =>
+      Array.from(runs).sort((left, right) => runTimestampMs(right) - runTimestampMs(left));
 
     const runDuration = (run) => {
       return (run.checks || []).reduce((total, check) => {
@@ -1065,87 +1097,11 @@ const reportShellHTMLTemplate = `<!doctype html>
       const summary = computeSummary(filtered);
       const trends = buildDashboardTrends(filtered);
       const flakyRows = buildFlakyItemRows(filtered);
-      const recentRuns = Array.from(filtered)
-        .sort((left, right) => {
-          const rightDate = parseTimestamp(right);
-          const leftDate = parseTimestamp(left);
-          const rightMs = rightDate ? rightDate.getTime() : 0;
-          const leftMs = leftDate ? leftDate.getTime() : 0;
-          return rightMs - leftMs;
-        })
-        .slice(0, 20);
+      const recentRuns = sortRunsDesc(filtered).slice(0, 20);
 
       return html__BT__
         <section class="card stack">
           <h2>Dashboard</h2>
-          <div class="filters">
-            <label class="field">Checker
-              <input
-                type="text"
-                value=${filters.checker}
-                onInput=${(event) => updateHashFilters("/dashboard", { checker: event.currentTarget.value })}
-                placeholder="ruff"
-              />
-            </label>
-            <label class="field">Status
-              <select
-                value=${filters.status}
-                onChange=${(event) => updateHashFilters("/dashboard", { status: event.currentTarget.value })}
-              >
-                <option value="">any</option>
-                <option value="passed">passed</option>
-                <option value="failed">failed</option>
-                <option value="error">error</option>
-                <option value="skipped">skipped</option>
-              </select>
-            </label>
-            <label class="field">Branch
-              <input
-                type="text"
-                value=${filters.branch}
-                onInput=${(event) => updateHashFilters("/dashboard", { branch: event.currentTarget.value })}
-                placeholder="main"
-              />
-            </label>
-            <label class="field">Matrix (key:value)
-              <input
-                type="text"
-                value=${filters.matrix}
-                onInput=${(event) => updateHashFilters("/dashboard", { matrix: event.currentTarget.value })}
-                placeholder="python:3.12"
-              />
-            </label>
-            <label class="field">From date
-              <input
-                type="date"
-                value=${filters.from}
-                onInput=${(event) => updateHashFilters("/dashboard", { from: event.currentTarget.value })}
-              />
-            </label>
-            <label class="field">To date
-              <input
-                type="date"
-                value=${filters.to}
-                onInput=${(event) => updateHashFilters("/dashboard", { to: event.currentTarget.value })}
-              />
-            </label>
-            <label class="field">PR #
-              <input
-                type="text"
-                value=${filters.pr}
-                onInput=${(event) => updateHashFilters("/dashboard", { pr: event.currentTarget.value })}
-                placeholder="123"
-              />
-            </label>
-            <label class="field">SHA
-              <input
-                type="text"
-                value=${filters.sha}
-                onInput=${(event) => updateHashFilters("/dashboard", { sha: event.currentTarget.value })}
-                placeholder="a1b2c3d"
-              />
-            </label>
-          </div>
           ${runsError
             ? html__BT__<p class="empty">Failed to load history: ${runsError}</p>__BT__
             : filtered.length === 0
@@ -1275,6 +1231,260 @@ const reportShellHTMLTemplate = `<!doctype html>
       __BT__;
     }
 
+    function GlobalFilters({ route, filters }) {
+      return html__BT__
+        <section class="card stack filter-card">
+          <div class="check-head">
+            <h2>Global Filters</h2>
+            <button
+              type="button"
+              class="reset-button"
+              onClick=${() => updateHashFilters(route, { ...defaultFilters })}
+            >Reset</button>
+          </div>
+          <div class="filters">
+            <label class="field">Checker
+              <input
+                type="text"
+                value=${filters.checker}
+                onInput=${(event) => updateHashFilters(route, { checker: event.currentTarget.value })}
+                placeholder="ruff"
+              />
+            </label>
+            <label class="field">Status
+              <select
+                value=${filters.status}
+                onChange=${(event) => updateHashFilters(route, { status: event.currentTarget.value })}
+              >
+                <option value="">any</option>
+                <option value="passed">passed</option>
+                <option value="failed">failed</option>
+                <option value="error">error</option>
+                <option value="skipped">skipped</option>
+              </select>
+            </label>
+            <label class="field">Branch
+              <input
+                type="text"
+                value=${filters.branch}
+                onInput=${(event) => updateHashFilters(route, { branch: event.currentTarget.value })}
+                placeholder="main"
+              />
+            </label>
+            <label class="field">Matrix (key:value)
+              <input
+                type="text"
+                value=${filters.matrix}
+                onInput=${(event) => updateHashFilters(route, { matrix: event.currentTarget.value })}
+                placeholder="python:3.12"
+              />
+            </label>
+            <label class="field">From date
+              <input
+                type="date"
+                value=${filters.from}
+                onInput=${(event) => updateHashFilters(route, { from: event.currentTarget.value })}
+              />
+            </label>
+            <label class="field">To date
+              <input
+                type="date"
+                value=${filters.to}
+                onInput=${(event) => updateHashFilters(route, { to: event.currentTarget.value })}
+              />
+            </label>
+            <label class="field">PR #
+              <input
+                type="text"
+                value=${filters.pr}
+                onInput=${(event) => updateHashFilters(route, { pr: event.currentTarget.value })}
+                placeholder="123"
+              />
+            </label>
+            <label class="field">SHA
+              <input
+                type="text"
+                value=${filters.sha}
+                onInput=${(event) => updateHashFilters(route, { sha: event.currentTarget.value })}
+                placeholder="a1b2c3d"
+              />
+            </label>
+          </div>
+        </section>
+      __BT__;
+    }
+
+    function PRView({ filters }) {
+      const filtered = runsCache.filter((run) => matchesFilters(run, filters));
+      const withPR = filtered.filter((run) => run && run.pr != null);
+      const byPR = new Map();
+
+      for (const run of withPR) {
+        const key = String(run.pr);
+        if (!byPR.has(key)) {
+          byPR.set(key, []);
+        }
+        byPR.get(key).push(run);
+      }
+
+      const groups = Array.from(byPR.entries())
+        .map(([pr, runs]) => {
+          const sortedRuns = sortRunsDesc(runs);
+          const latest = sortedRuns[0];
+          const passCount = sortedRuns.filter((run) => runStatus(run) === "passed").length;
+          const checkerSet = new Set();
+          for (const run of sortedRuns) {
+            for (const check of run.checks || []) {
+              checkerSet.add(normalize(check && check.tool) || "unknown");
+            }
+          }
+          return {
+            pr,
+            runs: sortedRuns,
+            latest,
+            latestStatus: runStatus(latest),
+            passRate: sortedRuns.length === 0 ? null : (passCount / sortedRuns.length) * 100,
+            checkers: Array.from(checkerSet).sort(),
+          };
+        })
+        .sort((left, right) => runTimestampMs(right.latest) - runTimestampMs(left.latest));
+
+      return html__BT__
+        <section class="card stack">
+          <h2>PR View</h2>
+          ${runsError
+            ? html__BT__<p class="empty">Failed to load history: ${runsError}</p>__BT__
+            : groups.length === 0
+              ? html__BT__
+                <p class="empty">No PR-associated runs matched filters.</p>
+                <p class="empty">PR numbers are captured on pull-request workflow events.</p>
+              __BT__
+              : html__BT__
+                <div class="pr-grid">
+                  ${groups.map((group) => html__BT__
+                    <article class="check-block">
+                      <header class="check-head">
+                        <h3 class="check-title">PR #${group.pr}</h3>
+                        <span class=${"status " + group.latestStatus}>${group.latestStatus}</span>
+                      </header>
+                      <div class="inline-metrics">
+                        <span>Runs: <strong>${group.runs.length}</strong></span>
+                        <span>Pass Rate: <strong>${formatPercent(group.passRate)}</strong></span>
+                        <span>Latest SHA: <strong>${normalize(group.latest && group.latest.sha) || "-"}</strong></span>
+                        <span>Last Updated: <strong>${normalize(group.latest && group.latest.timestamp) || "-"}</strong></span>
+                      </div>
+                      <div class="badge-row">
+                        ${group.checkers.map((tool) => html__BT__<span class="status tiny passed">${tool}</span>__BT__)}
+                      </div>
+                      <div class="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Timestamp</th>
+                              <th>Branch</th>
+                              <th>SHA</th>
+                              <th>Status</th>
+                              <th>Duration</th>
+                              <th>Matrix</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${group.runs.map((run) => {
+                              const status = runStatus(run);
+                              return html__BT__
+                                <tr>
+                                  <td>${normalize(run.timestamp) || "-"}</td>
+                                  <td>${normalize(run.branch) || "-"}</td>
+                                  <td>${normalize(run.sha) || "-"}</td>
+                                  <td><span class=${"status " + status}>${status}</span></td>
+                                  <td>${formatDuration(runDuration(run))}</td>
+                                  <td>${formatMatrix(run.matrix)}</td>
+                                </tr>
+                              __BT__;
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </article>
+                  __BT__)}
+                </div>
+              __BT__
+          }
+        </section>
+      __BT__;
+    }
+
+    function TrendsView({ filters }) {
+      const filtered = runsCache.filter((run) => matchesFilters(run, filters));
+      const trends = buildDashboardTrends(filtered);
+      const flakyRows = buildFlakyItemRows(filtered);
+
+      return html__BT__
+        <section class="card stack">
+          <h2>Trends</h2>
+          ${runsError
+            ? html__BT__<p class="empty">Failed to load history: ${runsError}</p>__BT__
+            : filtered.length === 0
+              ? html__BT__<p class="empty">No runs matched active filters.</p>__BT__
+              : html__BT__
+                <${UPlotLineChart}
+                  title="Pass Rate Trend"
+                  xValues=${trends.x}
+                  yValues=${trends.passRate}
+                  yLabel="Pass Rate"
+                  color="#0f766e"
+                  valueSuffix="%"
+                />
+                <${UPlotLineChart}
+                  title="Duration Trend"
+                  xValues=${trends.x}
+                  yValues=${trends.duration}
+                  yLabel="Avg Duration (s)"
+                  color="#2563eb"
+                  valueSuffix="s"
+                />
+                <section class="stack">
+                  <h3>Flaky Tests (Filtered Window)</h3>
+                  ${flakyRows.length === 0
+                    ? html__BT__<p class="empty">No flaky tests detected in the filtered window.</p>__BT__
+                    : html__BT__
+                      <div class="table-wrap">
+                        <table class="flaky-table">
+                          <thead>
+                            <tr>
+                              <th>Checker</th>
+                              <th>Item</th>
+                              <th>Flips</th>
+                              <th>Observations</th>
+                              <th>Pass</th>
+                              <th>Fail/Error</th>
+                              <th>Last Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${flakyRows.map((row) => html__BT__
+                              <tr>
+                                <td>${row.tool}</td>
+                                <td class="item-id">${row.id}</td>
+                                <td>${row.flips}</td>
+                                <td>${row.observations}</td>
+                                <td>${row.pass}</td>
+                                <td>${row.fail}</td>
+                                <td><span class=${"status tiny " + row.lastStatus}>${row.lastStatus}</span></td>
+                              </tr>
+                            __BT__)}
+                          </tbody>
+                        </table>
+                      </div>
+                    __BT__
+                  }
+                </section>
+              __BT__
+          }
+        </section>
+      __BT__;
+    }
+
     function RunDetail({ filters }) {
       const selected = pickRunForDetail(runsCache, filters.run);
       if (runsError) {
@@ -1295,15 +1505,7 @@ const reportShellHTMLTemplate = `<!doctype html>
       }
 
       const checks = Array.isArray(selected.checks) ? selected.checks : [];
-      const recentRuns = Array.from(runsCache)
-        .sort((left, right) => {
-          const rightDate = parseTimestamp(right);
-          const leftDate = parseTimestamp(left);
-          const rightMs = rightDate ? rightDate.getTime() : 0;
-          const leftMs = leftDate ? leftDate.getTime() : 0;
-          return rightMs - leftMs;
-        })
-        .slice(0, 80);
+      const recentRuns = sortRunsDesc(runsCache).slice(0, 80);
 
       return html__BT__
         <section class="card stack">
@@ -1419,13 +1621,12 @@ const reportShellHTMLTemplate = `<!doctype html>
     function App() {
       const state = parseHashState();
       const route = state.route;
-      const view = routes[route];
 
       return html__BT__
         <main class="layout">
-          <header>
+          <header class="card">
             <h1 class="title">Cairn</h1>
-            <p class="subtitle">Static report shell</p>
+            <p class="subtitle">Quality Intelligence Dashboard</p>
           </header>
           <nav class="nav" aria-label="Primary">
             ${navItems.map((item) => html__BT__
@@ -1436,16 +1637,14 @@ const reportShellHTMLTemplate = `<!doctype html>
               >${item.label}</a>
             __BT__)}
           </nav>
+          <${GlobalFilters} route=${route} filters=${state.filters} />
           ${route === "/dashboard"
             ? html__BT__<${Dashboard} filters=${state.filters} />__BT__
+            : route === "/pr"
+              ? html__BT__<${PRView} filters=${state.filters} />__BT__
             : route === "/run"
               ? html__BT__<${RunDetail} filters=${state.filters} />__BT__
-            : html__BT__
-              <section class="card">
-                <h2>${view.title}</h2>
-                <p class="empty">${view.text}</p>
-              </section>
-            __BT__
+            : html__BT__<${TrendsView} filters=${state.filters} />__BT__
           }
         </main>
       __BT__;
