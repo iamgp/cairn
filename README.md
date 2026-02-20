@@ -28,7 +28,7 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 
    ```yaml
    - run: cairn collect --config cairn.toml --out run-record.json
-   - uses: iamgp/cairn@v1
+   - uses: iamgp/cairn@v0.1.0
      with:
        ingest-file: run-record.json
    ```
