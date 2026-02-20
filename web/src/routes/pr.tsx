@@ -32,11 +32,11 @@ function PRPage() {
         onReset={() => setFilters(defaultFilters)}
       />
 
-      {loading && <Card className="p-6 text-sm text-slate-600">Loading history...</Card>}
+      {loading && <Card className="p-6 text-sm text-gray-600">Loading history...</Card>}
       {error && <Card className="p-6 text-sm text-rose-700">Failed to load history: {error}</Card>}
 
       {!loading && !error && groups.length === 0 && (
-        <Card className="p-6 text-sm text-slate-600">No PR runs found with current filters.</Card>
+        <Card className="p-6 text-sm text-gray-600">No PR runs found with current filters.</Card>
       )}
 
       {!loading && !error && groups.map(([pr, prRuns]) => (
@@ -47,7 +47,7 @@ function PRPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-slate-600">
+              <thead className="bg-gray-50 text-left text-gray-600">
                 <tr>
                   <th className="px-3 py-2">Run</th>
                   <th className="px-3 py-2">Timestamp</th>
@@ -57,7 +57,7 @@ function PRPage() {
               </thead>
               <tbody>
                 {prRuns.map((run) => (
-                  <tr key={run.run_id} className="border-t border-slate-100">
+                  <tr key={run.run_id} className="border-t border-gray-100">
                     <td className="px-3 py-2 font-medium">{run.run_id}</td>
                     <td className="px-3 py-2">{run.timestamp}</td>
                     <td className="px-3 py-2 font-mono text-xs">{run.sha}</td>

@@ -20,16 +20,16 @@ function TrendsPage() {
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1))
   }, [runs])
 
-  if (loading) return <Card className="p-6 text-sm text-slate-600">Loading history...</Card>
+  if (loading) return <Card className="p-6 text-sm text-gray-600">Loading history...</Card>
   if (error) return <Card className="p-6 text-sm text-rose-700">Failed to load history: {error}</Card>
 
   return (
     <Card className="p-4">
       <h2 className="text-lg font-bold">Daily Pass Rate</h2>
-      <p className="text-sm text-slate-600">Simple trend view by day</p>
+      <p className="text-sm text-gray-600">Simple trend view by day</p>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-600">
+          <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
               <th className="px-3 py-2">Day</th>
               <th className="px-3 py-2">Runs</th>
@@ -40,15 +40,15 @@ function TrendsPage() {
             {byDay.map(([day, stats]) => {
               const pct = stats.total ? Math.round((stats.passed / stats.total) * 100) : 0
               return (
-                <tr key={day} className="border-t border-slate-100">
+                <tr key={day} className="border-t border-gray-100">
                   <td className="px-3 py-2">{day}</td>
                   <td className="px-3 py-2">{stats.total}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-40 rounded-full bg-slate-200">
+                      <div className="h-2 w-40 rounded-full bg-gray-200">
                         <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs font-semibold text-slate-700">{pct}%</span>
+                      <span className="text-xs font-semibold text-gray-700">{pct}%</span>
                     </div>
                   </td>
                 </tr>

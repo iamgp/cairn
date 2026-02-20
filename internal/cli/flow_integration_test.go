@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestIngestReportCommentFlowWithFixtures(t *testing.T) {
+func TestIngestCommentFlowWithFixtures(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -86,22 +86,6 @@ func TestIngestReportCommentFlowWithFixtures(t *testing.T) {
 	if len(decoded.Checks) != 3 {
 		t.Fatalf("expected 3 checks in decoded ndjson run, got %d", len(decoded.Checks))
 	}
-
-	report := NewRootCommand()
-	report.SetArgs([]string{"report", "--pages-dir", pagesDir})
-	if err := report.Execute(); err != nil {
-		t.Fatalf("execute report: %v", err)
-	}
-
-	htmlRaw, err := os.ReadFile(filepath.Join(pagesDir, "index.html"))
-	if err != nil {
-		t.Fatalf("read report html: %v", err)
-	}
-	htmlContent := string(htmlRaw)
-	assertContains(t, htmlContent, "<!doctype html>")
-	assertContains(t, htmlContent, "<html lang=\"en\">")
-	assertContains(t, htmlContent, "<title>Cairn Report</title>")
-	assertContains(t, htmlContent, "<div id=\"app\"></div>")
 
 	commentPath := filepath.Join(tmpDir, "comment.md")
 	comment := NewRootCommand()

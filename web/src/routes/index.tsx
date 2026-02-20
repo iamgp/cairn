@@ -30,10 +30,10 @@ function DashboardPage() {
   }, [filtered])
 
   return (
-    <section className="border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-3">
+    <section className="border border-gray-200 bg-white">
+      <div className="border-b border-gray-200 px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-900">Run Records</h2>
+          <h2 className="text-sm font-semibold text-gray-900">Run Records</h2>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => setFilters(defaultFilters)}>
               Reset
@@ -43,7 +43,7 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-3">
         <Select className="w-auto min-w-[130px]" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
           <option value="any">Status</option>
           <option value="passed">Passed</option>
@@ -85,20 +85,20 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-5 border-b border-slate-200 px-4 py-2 text-xs">
-        <span className="font-semibold text-slate-900">All {summary.total}</span>
+      <div className="flex items-center gap-5 border-b border-gray-200 px-4 py-2 text-xs">
+        <span className="font-semibold text-gray-900">All {summary.total}</span>
         <span className="text-emerald-700">Passed {summary.passed}</span>
         <span className="text-rose-700">Failed/Error {summary.failed}</span>
         <span className="text-amber-700">Skipped {summary.skipped}</span>
       </div>
 
-      {loading && <p className="px-4 py-6 text-sm text-slate-600">Loading history...</p>}
+      {loading && <p className="px-4 py-6 text-sm text-gray-600">Loading history...</p>}
       {error && <p className="px-4 py-6 text-sm text-rose-700">Failed to load history: {error}</p>}
 
       {!loading && !error && (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+            <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
               <tr>
                 <th className="px-4 py-3">Time</th>
                 <th className="px-4 py-3">Run</th>
@@ -112,19 +112,19 @@ function DashboardPage() {
             </thead>
             <tbody>
               {filtered.slice(0, 120).map((run) => (
-                <tr key={`${run.run_id}-${run.timestamp}`} className="border-b border-slate-100">
-                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatTime(run.timestamp)}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                <tr key={`${run.run_id}-${run.timestamp}`} className="border-b border-gray-100">
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">{formatTime(run.timestamp)}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
                     <Link to="/run" search={{ run: run.run_id }} className="hover:underline">
                       {run.run_id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{run.branch || '-'}</td>
-                  <td className="px-4 py-3 text-slate-700">{run.pr != null ? `#${run.pr}` : '-'}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-600">{run.sha || '-'}</td>
-                  <td className="px-4 py-3 text-slate-700">{run.checks?.length ?? 0}</td>
+                  <td className="px-4 py-3 text-gray-700">{run.branch || '-'}</td>
+                  <td className="px-4 py-3 text-gray-700">{run.pr != null ? `#${run.pr}` : '-'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{run.sha || '-'}</td>
+                  <td className="px-4 py-3 text-gray-700">{run.checks?.length ?? 0}</td>
                   <td className="px-4 py-3"><StatusBadge status={runStatus(run)} /></td>
-                  <td className="px-4 py-3 text-slate-700">{runDuration(run).toFixed(1)}s</td>
+                  <td className="px-4 py-3 text-gray-700">{runDuration(run).toFixed(1)}s</td>
                 </tr>
               ))}
             </tbody>
