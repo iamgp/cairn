@@ -27,6 +27,7 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"ref: ${{ inputs.gh-pages-branch }}",
 		"RUNNER_OS",
 		"RUNNER_ARCH",
+		"release_repo=\"iamgp/cairn\"",
 		"cairn ingest \"${{ inputs.ingest-file }}\" --pages-dir \"${{ github.workspace }}/gh-pages\"",
 		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",
 	}

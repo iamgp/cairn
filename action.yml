@@ -54,10 +54,11 @@ runs:
         esac
 
         version="${{ inputs.cairn-version }}"
+        release_repo="iamgp/cairn"
         if [ "${version}" = "latest" ]; then
-          release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download"
+          release_base_url="https://github.com/${release_repo}/releases/latest/download"
         else
-          release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${version}"
+          release_base_url="https://github.com/${release_repo}/releases/download/${version}"
         fi
 
         extension=""

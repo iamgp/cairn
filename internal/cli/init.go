@@ -137,7 +137,7 @@ Copy and adapt this workflow for your repository:
           - uses: actions/download-artifact@v4
             with:
               path: cairn-inputs
-          - uses: your-org/cairn@v1
+          - uses: iamgp/cairn@v1
             with:
               ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
 `
@@ -266,7 +266,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: cairn-inputs
-      - uses: your-org/cairn@v1
+      - uses: iamgp/cairn@v1
         with:
           ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
 `

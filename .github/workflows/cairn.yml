@@ -1,0 +1,54 @@
+name: Cairn Example
+
+on:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
+      - run: ruff check --output-format json --output-file ruff-results.json
+      - run: ty check --output json > ty-results.json
+      - name: Build run record JSON
+        run: |
+          cat > run-record.json <<'JSON'
+          {
+            "v": 1,
+            "run_id": "${{ github.run_id }}-${{ matrix.python-version }}",
+            "sha": "${{ github.sha }}",
+            "sha_full": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "matrix": {"python": "${{ matrix.python-version }}"},
+            "checks": []
+          }
+          JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cairn-run-${{ matrix.python-version }}
+          path: run-record.json
+
+  cairn:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: cairn-inputs
+      - uses: iamgp/cairn@v1
+        with:
+          ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
