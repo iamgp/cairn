@@ -13,8 +13,8 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-4 p-4 lg:grid-cols-[220px_1fr]">
-      <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <main className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-3 p-3 lg:grid-cols-[220px_1fr]">
+      <aside className="border border-slate-200 bg-white p-4">
         <div className="mb-5 border-b border-slate-200 pb-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cairn</p>
           <h1 className="mt-1 text-lg font-bold text-slate-900">Quality Console</h1>
@@ -25,7 +25,7 @@ function RootLayout() {
               key={item.to}
               to={item.to}
               activeProps={{ className: 'bg-slate-900 text-white' }}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+              className="px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
             >
               {item.label}
             </Link>
@@ -37,8 +37,8 @@ function RootLayout() {
         </div>
       </aside>
 
-      <section className="grid gap-4">
-        <header className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <section className="grid gap-3">
+        <header className="border border-slate-200 bg-white px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operations</p>
