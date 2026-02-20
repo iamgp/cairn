@@ -13,8 +13,8 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <main className="mx-auto grid min-h-screen w-full max-w-[1400px] gap-3 p-3 lg:grid-cols-[220px_1fr]">
-      <aside className="border border-slate-200 bg-white p-4">
+    <main className="grid min-h-screen w-full grid-cols-1 bg-slate-100 lg:grid-cols-[220px_1fr]">
+      <aside className="border-r border-slate-200 bg-white p-4">
         <div className="mb-5 border-b border-slate-200 pb-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cairn</p>
           <h1 className="mt-1 text-lg font-bold text-slate-900">Quality Console</h1>
@@ -37,8 +37,8 @@ function RootLayout() {
         </div>
       </aside>
 
-      <section className="grid gap-3">
-        <header className="border border-slate-200 bg-white px-5 py-4">
+      <section className="grid grid-rows-[auto_1fr]">
+        <header className="border-b border-slate-200 bg-white px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operations</p>
@@ -49,7 +49,9 @@ function RootLayout() {
             </p>
           </div>
         </header>
-        <Outlet />
+        <div className="p-4">
+          <Outlet />
+        </div>
       </section>
     </main>
   )
