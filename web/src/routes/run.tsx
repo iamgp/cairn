@@ -26,9 +26,9 @@ function RunPage() {
 
   const run = runs.find((entry) => entry.run_id === selectedRun) ?? runs[0]
 
-  if (loading) return <Card className="p-6 text-sm text-slate-600">Loading history...</Card>
+  if (loading) return <Card className="p-6 text-sm text-gray-600">Loading history...</Card>
   if (error) return <Card className="p-6 text-sm text-rose-700">Failed to load history: {error}</Card>
-  if (!run) return <Card className="p-6 text-sm text-slate-600">No runs available yet.</Card>
+  if (!run) return <Card className="p-6 text-sm text-gray-600">No runs available yet.</Card>
 
   return (
     <section className="grid gap-4">
@@ -58,7 +58,7 @@ function RunPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-slate-600">
+              <thead className="bg-gray-50 text-left text-gray-600">
                 <tr>
                   <th className="px-3 py-2">Item</th>
                   <th className="px-3 py-2">Status</th>
@@ -67,10 +67,10 @@ function RunPage() {
               </thead>
               <tbody>
                 {(check.items || []).map((item) => (
-                  <tr key={item.id} className="border-t border-slate-100 align-top">
+                  <tr key={item.id} className="border-t border-gray-100 align-top">
                     <td className="px-3 py-2 font-mono text-xs">{item.id}</td>
                     <td className="px-3 py-2"><StatusBadge status={item.status} /></td>
-                    <td className="px-3 py-2 whitespace-pre-wrap text-xs text-slate-700">{item.message || '-'}</td>
+                    <td className="px-3 py-2 whitespace-pre-wrap text-xs text-gray-700">{item.message || '-'}</td>
                   </tr>
                 ))}
               </tbody>

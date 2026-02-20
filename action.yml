@@ -143,7 +143,8 @@ runs:
           npm run build:pages
           cp -R .output/public/. "${pages_dir}/"
         else
-          cairn report --pages-dir "${pages_dir}"
+          echo "Missing web report sources at ${action_root}/web; cannot build TanStack report assets." >&2
+          exit 1
         fi
 
     - name: Commit and push gh-pages changes

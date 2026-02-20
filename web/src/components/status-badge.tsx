@@ -10,7 +10,7 @@ const statusClass: Record<string, string> = {
 export function StatusBadge({ status }: { status: string }) {
   const normalized = (status || 'unknown').toLowerCase()
   return (
-    <Badge className={statusClass[normalized] ?? 'bg-slate-200 text-slate-700'}>
+    <Badge className={statusClass[normalized] ?? 'bg-gray-200 text-gray-700'}>
       {normalized}
     </Badge>
   )
