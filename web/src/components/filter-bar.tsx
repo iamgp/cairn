@@ -21,9 +21,9 @@ export function FilterBar({
   onReset: () => void
 }) {
   return (
-    <section className="grid gap-3 rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+    <section className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Scope</h2>
+        <h2 className="text-sm font-semibold text-slate-700">Filters</h2>
         <Button variant="secondary" size="sm" onClick={onReset}>
           Reset
         </Button>

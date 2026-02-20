@@ -28,7 +28,7 @@ function DashboardPage() {
   const recentFailures = useMemo(() => buildFailureFeed(filtered), [filtered])
 
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-3">
       <FilterBar
         filters={filters}
         options={options}
@@ -49,17 +49,17 @@ function DashboardPage() {
             <Metric title="Avg Duration" value={`${summary.avgDuration.toFixed(1)}s`} />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-5">
+          <div className="grid gap-3 xl:grid-cols-5">
             <Card className="xl:col-span-3 overflow-hidden">
-              <div className="border-b border-slate-200 p-4">
-                <h3 className="text-lg font-black">Run Health Timeline</h3>
-                <p className="text-sm text-slate-600">Latest 24 runs, colored by outcome and bar height by duration</p>
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h3 className="text-base font-bold">Run Health Timeline</h3>
+                <p className="text-xs text-slate-500">Latest 24 runs, color by result and height by duration</p>
               </div>
-              <div className="px-4 py-5">
+              <div className="px-4 py-4">
                 {trend.length === 0 ? (
                   <p className="text-sm text-slate-500">No runs to plot.</p>
                 ) : (
-                  <div className="flex h-44 items-end gap-1 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                  <div className="flex h-40 items-end gap-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     {trend.map((entry) => (
                       <Link
                         key={`${entry.run.run_id}-${entry.run.timestamp}`}
@@ -69,7 +69,7 @@ function DashboardPage() {
                         title={`${entry.run.run_id} • ${entry.status} • ${entry.duration.toFixed(1)}s`}
                       >
                         <span
-                          className={`block w-full rounded-t-md transition group-hover:opacity-85 ${barTone(entry.status)}`}
+                          className={`block w-full rounded-t-sm transition group-hover:opacity-85 ${barTone(entry.status)}`}
                           style={{ height: `${entry.height}%`, minHeight: '12%' }}
                         />
                       </Link>
@@ -80,16 +80,16 @@ function DashboardPage() {
             </Card>
 
             <Card className="xl:col-span-2 overflow-hidden">
-              <div className="border-b border-slate-200 p-4">
-                <h3 className="text-lg font-black">Failure Hotspots</h3>
-                <p className="text-sm text-slate-600">Checks with the highest failure pressure</p>
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h3 className="text-base font-bold">Failure Hotspots</h3>
+                <p className="text-xs text-slate-500">Checks with the highest failure pressure</p>
               </div>
-              <div className="grid gap-2 p-4">
+              <div className="grid gap-2 p-3">
                 {checkerHealth.length === 0 && (
                   <p className="text-sm text-slate-500">No check data for current filters.</p>
                 )}
                 {checkerHealth.slice(0, 7).map((row) => (
-                  <div key={row.tool} className="rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+                  <div key={row.tool} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between">
                       <p className="font-semibold text-slate-900">{row.tool}</p>
                       <p className="text-sm font-bold text-rose-700">{row.failures}</p>
@@ -104,15 +104,15 @@ function DashboardPage() {
             </Card>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-5">
+          <div className="grid gap-3 xl:grid-cols-5">
             <Card className="xl:col-span-3 overflow-hidden">
-              <div className="border-b border-slate-200 p-4">
-                <h3 className="text-lg font-black">Recent Runs</h3>
-                <p className="text-sm text-slate-600">Click a run to inspect all checks and test items</p>
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h3 className="text-base font-bold">Recent Runs</h3>
+                <p className="text-xs text-slate-500">Click a run to inspect all checks and test items</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-slate-600">
+                  <thead className="bg-slate-50 text-left text-xs text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Run</th>
                       <th className="px-4 py-3">Time</th>
@@ -126,7 +126,7 @@ function DashboardPage() {
                     {filtered.slice(0, 25).map((run) => (
                       <tr key={`${run.run_id}-${run.timestamp}`} className="border-t border-slate-100">
                         <td className="px-4 py-3 font-medium">
-                          <Link to="/run" search={{ run: run.run_id }} className="text-emerald-700 underline-offset-2 hover:underline">
+                          <Link to="/run" search={{ run: run.run_id }} className="text-slate-900 underline-offset-2 hover:underline">
                             {run.run_id}
                           </Link>
                         </td>
@@ -143,23 +143,23 @@ function DashboardPage() {
             </Card>
 
             <Card className="xl:col-span-2 overflow-hidden">
-              <div className="border-b border-slate-200 p-4">
-                <h3 className="text-lg font-black">Recent Failing Items</h3>
-                <p className="text-sm text-slate-600">Most recent failing checks/tests surfaced from item-level data</p>
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h3 className="text-base font-bold">Recent Failing Items</h3>
+                <p className="text-xs text-slate-500">Most recent failing checks/tests surfaced from item-level data</p>
               </div>
-              <div className="grid gap-2 p-4">
+              <div className="grid gap-2 p-3">
                 {recentFailures.length === 0 && (
                   <p className="text-sm text-emerald-700">No failing items in current filter scope.</p>
                 )}
                 {recentFailures.map((failure) => (
-                  <div key={failure.key} className="rounded-lg border border-rose-200 bg-rose-50/70 p-3">
+                  <div key={failure.key} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-slate-900">{failure.tool}</p>
                       <StatusBadge status={failure.status} />
                     </div>
                     <p className="mt-1 truncate font-mono text-xs text-slate-700">{failure.itemId}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600">{failure.message}</p>
-                    <Link to="/run" search={{ run: failure.runId }} className="mt-2 inline-block text-xs font-semibold text-rose-700 underline-offset-2 hover:underline">
+                    <Link to="/run" search={{ run: failure.runId }} className="mt-2 inline-block text-xs font-semibold text-slate-700 underline-offset-2 hover:underline">
                       Open run {failure.runId}
                     </Link>
                   </div>
@@ -178,9 +178,9 @@ function Metric({ title, value, tone }: { title: string; value: string; tone?: '
     tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-rose-700' : tone === 'warn' ? 'text-amber-700' : 'text-slate-900'
 
   return (
-    <Card className="bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{title}</p>
-      <p className={`mt-1 text-3xl font-black ${toneClass}`}>{value}</p>
+    <Card className="p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <p className={`mt-1 text-2xl font-bold ${toneClass}`}>{value}</p>
     </Card>
   )
 }
@@ -209,10 +209,10 @@ function buildRunTrend(runs: RunRecord[]) {
 }
 
 function barTone(status: string) {
-  if (status === 'passed') return 'bg-emerald-500'
+  if (status === 'passed') return 'bg-emerald-600'
   if (status === 'skipped') return 'bg-amber-400'
   if (status === 'error') return 'bg-rose-700'
-  return 'bg-rose-500'
+  return 'bg-rose-600'
 }
 
 function buildCheckerHealth(runs: RunRecord[]) {
