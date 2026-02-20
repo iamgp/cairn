@@ -13,8 +13,8 @@ export function ReportEmptyState({ title, message, actions, className }: ReportE
   return (
     <Card className={cn('border-dashed', className)}>
       <CardContent className="py-8 text-center sm:py-10">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
-        {message ? <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{message}</p> : null}
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+        {message ? <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{message}</p> : null}
         {actions ? <div className="mt-4 flex justify-center gap-2">{actions}</div> : null}
       </CardContent>
     </Card>

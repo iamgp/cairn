@@ -50,3 +50,4 @@
 - 2026-02-20 | Audit | Checked `web/src` for Helm parity; noted table layouts and base UI primitives lacking theme/dark awareness as blockers for the updated Cairn report.
 | 2026-02-20 | self | Assumed Helm UI lived at `helm/web/src` and spawned analysis on the wrong path first | Verify sibling repo frontend root (`frontend/src` vs `web/src`) before planning migrations |
 | 2026-02-20 | self | Accepted a worker patch that still duplicated page scaffolding instead of consuming shared report components | Enforce component reuse explicitly in acceptance pass; verify routes import shared primitives (`components/report`) |
+| 2026-02-20 | user | Requested strict Helm color/sidebar parity and called out missing Runs table + dark-hover issues | Do exact Helm token/class parity for shell and table interactions; avoid substituting generic palettes |

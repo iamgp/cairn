@@ -13,7 +13,7 @@ const statusTone: Record<string, string> = {
   failed: 'ring-rose-500/30',
   error: 'ring-rose-500/30',
   skipped: 'ring-amber-500/30',
-  running: 'ring-cyan-500/30',
+  running: 'ring-blue-500/30',
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -22,7 +22,7 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <Badge
       variant={statusVariant[normalized] ?? 'default'}
-      className={`capitalize ring-1 ring-inset ${statusTone[normalized] ?? 'ring-zinc-500/20'}`}
+      className={`capitalize ring-1 ring-inset ${statusTone[normalized] ?? 'ring-gray-500/20'}`}
     >
       {normalized}
     </Badge>

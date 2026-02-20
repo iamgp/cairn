@@ -47,7 +47,7 @@ function OverviewPage() {
         title="Overview"
         description="Run health and recent execution history for Cairn checks."
         actions={
-          <p className="rounded-md border border-zinc-200/80 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <p className="rounded-md border border-gray-200/80 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
             {summary.total} run{summary.total === 1 ? '' : 's'} in current scope
           </p>
         }
@@ -89,12 +89,12 @@ function RunTimelineRow({ run }: { run: RunRecord }) {
     <Link
       to="/run"
       search={{ run: run.run_id }}
-      className="block rounded-lg border border-zinc-200/80 bg-zinc-50/90 p-3 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+      className="block rounded-lg border border-gray-200/80 bg-gray-50/90 p-3 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{run.run_id}</p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{formatDateTime(run.timestamp)}</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{run.run_id}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatDateTime(run.timestamp)}</p>
         </div>
         <StatusBadge status={status} />
       </div>
@@ -111,7 +111,7 @@ function RunTimelineRow({ run }: { run: RunRecord }) {
 
 function InfoPill({ label }: { label: string }) {
   return (
-    <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
+    <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300">
       {label}
     </span>
   )
@@ -121,7 +121,7 @@ function InfoState({ children, tone }: { children: ReactNode; tone: 'neutral' | 
   return (
     <Card
       className={`m-4 p-6 text-sm sm:m-6 lg:m-8 ${
-        tone === 'danger' ? 'text-rose-700 dark:text-rose-300' : 'text-zinc-600 dark:text-zinc-300'
+        tone === 'danger' ? 'text-rose-700 dark:text-rose-300' : 'text-gray-600 dark:text-gray-300'
       }`}
     >
       {children}
