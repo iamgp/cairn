@@ -30,3 +30,11 @@
 
 ## User Preferences
 - When asked for Helm parity, match the page shell/setup exactly (mobile/topbar/sidebar/theme behavior), then change only content labels/routes.
+
+## Corrections
+| Date | Source | What Went Wrong | What To Do Instead |
+|------|--------|----------------|-------------------|
+| 2026-02-20 | user | Initial Helm alignment was too subtle and retained table-heavy UI | When asked to adapt to Helm, rework the full page information architecture and remove table-centric layouts |
+
+## User Preferences
+- Remove table-heavy report presentation; prefer Helm-style cards/timelines/section blocks.

@@ -1,9 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
-import { Select } from '../components/ui/select'
+import { FilterBar } from '../components/filter-bar'
 import { StatusBadge } from '../components/status-badge'
+import { Card } from '../components/ui/card'
 import {
   defaultFilters,
   filterRuns,
@@ -26,116 +25,139 @@ function DashboardPage() {
     const passed = filtered.filter((run) => runStatus(run) === 'passed').length
     const failed = filtered.filter((run) => ['failed', 'error'].includes(runStatus(run))).length
     const skipped = filtered.filter((run) => runStatus(run) === 'skipped').length
-    return { total, passed, failed, skipped }
+    const avgDuration = total
+      ? filtered.reduce((acc, run) => acc + runDuration(run), 0) / total
+      : 0
+    return { total, passed, failed, skipped, avgDuration }
   }, [filtered])
 
+  const recentRuns = filtered.slice(0, 18)
+
+  if (loading) {
+    return <Card className="m-4 p-6 text-sm text-gray-600 sm:m-6 lg:m-8">Loading history...</Card>
+  }
+
+  if (error) {
+    return <Card className="m-4 p-6 text-sm text-rose-700 sm:m-6 lg:m-8">Failed to load history: {error}</Card>
+  }
+
   return (
-    <section className="border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-gray-900">Run Records</h2>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setFilters(defaultFilters)}>
-              Reset
-            </Button>
-            <Button size="sm">Export</Button>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 flex flex-col gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">CAN Checks Dashboard</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{summary.total} runs in current view</p>
+      </div>
+
+      <div className="mb-6">
+        <FilterBar
+          filters={filters}
+          options={options}
+          onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+          onReset={() => setFilters(defaultFilters)}
+        />
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="Runs" value={String(summary.total)} />
+        <StatCard label="Passed" value={String(summary.passed)} tone="ok" />
+        <StatCard label="Failed/Error" value={String(summary.failed)} tone="bad" />
+        <StatCard label="Skipped" value={String(summary.skipped)} tone="warn" />
+        <StatCard label="Avg Duration" value={`${summary.avgDuration.toFixed(1)}s`} />
+      </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Recent Runs</h2>
+          <span className="text-xs text-gray-400 dark:text-gray-500">Showing {recentRuns.length} of {summary.total}</span>
+        </div>
+
+        {recentRuns.length === 0 ? (
+          <Card className="p-6 text-sm text-gray-600">No runs match these filters.</Card>
+        ) : (
+          <div className="space-y-3">
+            {recentRuns.map((run) => {
+              const status = runStatus(run)
+              const checkers = (run.checks || []).slice(0, 4)
+              return (
+                <Link key={`${run.run_id}-${run.timestamp}`} to="/run" search={{ run: run.run_id }}>
+                  <Card className="p-4 transition-all hover:border-blue-300 hover:shadow-md dark:hover:border-blue-700">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{run.run_id}</p>
+                        <StatusBadge status={status} />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(run.timestamp)}</p>
+                    </div>
+
+                    <div className="mb-3 flex flex-wrap gap-2 text-xs">
+                      <Pill>{run.branch || 'no branch'}</Pill>
+                      <Pill>{run.pr != null ? `PR #${run.pr}` : 'no PR'}</Pill>
+                      <Pill>{run.sha ? run.sha.slice(0, 8) : 'no sha'}</Pill>
+                      <Pill>{run.checks?.length ?? 0} checks</Pill>
+                      <Pill>{runDuration(run).toFixed(1)}s</Pill>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {checkers.map((check) => (
+                        <span
+                          key={`${run.run_id}-${check.tool}`}
+                          className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                        >
+                          {check.tool}: {check.status}
+                        </span>
+                      ))}
+                      {(run.checks?.length ?? 0) > checkers.length && (
+                        <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                          +{(run.checks?.length ?? 0) - checkers.length} more
+                        </span>
+                      )}
+                    </div>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-3">
-        <Select className="w-auto min-w-[130px]" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
-          <option value="any">Status</option>
-          <option value="passed">Passed</option>
-          <option value="failed">Failed</option>
-          <option value="error">Error</option>
-          <option value="skipped">Skipped</option>
-        </Select>
-
-        <Select className="w-auto min-w-[140px]" value={filters.checker} onChange={(e) => setFilters((prev) => ({ ...prev, checker: e.target.value }))}>
-          {options.checkers.map((checker) => (
-            <option key={checker} value={checker}>
-              Checker: {checker}
-            </option>
-          ))}
-        </Select>
-
-        <Select className="w-auto min-w-[130px]" value={filters.branch} onChange={(e) => setFilters((prev) => ({ ...prev, branch: e.target.value }))}>
-          {options.branches.map((branch) => (
-            <option key={branch} value={branch}>
-              Branch: {branch}
-            </option>
-          ))}
-        </Select>
-
-        <Select className="w-auto min-w-[110px]" value={filters.pr} onChange={(e) => setFilters((prev) => ({ ...prev, pr: e.target.value }))}>
-          {options.prs.map((pr) => (
-            <option key={pr} value={pr}>
-              PR: {pr}
-            </option>
-          ))}
-        </Select>
-
-        <div className="ml-auto w-full sm:w-[280px]">
-          <Input
-            placeholder="Search runs"
-            value={filters.query}
-            onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-5 border-b border-gray-200 px-4 py-2 text-xs">
-        <span className="font-semibold text-gray-900">All {summary.total}</span>
-        <span className="text-emerald-700">Passed {summary.passed}</span>
-        <span className="text-rose-700">Failed/Error {summary.failed}</span>
-        <span className="text-amber-700">Skipped {summary.skipped}</span>
-      </div>
-
-      {loading && <p className="px-4 py-6 text-sm text-gray-600">Loading history...</p>}
-      {error && <p className="px-4 py-6 text-sm text-rose-700">Failed to load history: {error}</p>}
-
-      {!loading && !error && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-500">
-              <tr>
-                <th className="px-4 py-3">Time</th>
-                <th className="px-4 py-3">Run</th>
-                <th className="px-4 py-3">Branch</th>
-                <th className="px-4 py-3">PR</th>
-                <th className="px-4 py-3">SHA</th>
-                <th className="px-4 py-3">Checks</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.slice(0, 120).map((run) => (
-                <tr key={`${run.run_id}-${run.timestamp}`} className="border-b border-gray-100">
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">{formatTime(run.timestamp)}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    <Link to="/run" search={{ run: run.run_id }} className="hover:underline">
-                      {run.run_id}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{run.branch || '-'}</td>
-                  <td className="px-4 py-3 text-gray-700">{run.pr != null ? `#${run.pr}` : '-'}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{run.sha || '-'}</td>
-                  <td className="px-4 py-3 text-gray-700">{run.checks?.length ?? 0}</td>
-                  <td className="px-4 py-3"><StatusBadge status={runStatus(run)} /></td>
-                  <td className="px-4 py-3 text-gray-700">{runDuration(run).toFixed(1)}s</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+        )}
+      </section>
+    </div>
   )
 }
 
-function formatTime(value: string) {
+function StatCard({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  tone?: 'neutral' | 'ok' | 'bad' | 'warn'
+}) {
+  const toneClass =
+    tone === 'ok'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : tone === 'bad'
+        ? 'text-rose-700 dark:text-rose-400'
+        : tone === 'warn'
+          ? 'text-amber-700 dark:text-amber-400'
+          : 'text-gray-900 dark:text-gray-100'
+
+  return (
+    <Card className="p-4">
+      <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={`text-2xl font-bold ${toneClass}`}>{value}</p>
+    </Card>
+  )
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+      {children}
+    </span>
+  )
+}
+
+function formatDateTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString()
