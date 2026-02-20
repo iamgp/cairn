@@ -1,15 +1,28 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/ui/card'
 import { Select } from '../components/ui/select'
 import { StatusBadge } from '../components/status-badge'
 import { useHistoryRuns } from '../lib/history'
 
-export const Route = createFileRoute('/run')({ component: RunPage })
+export const Route = createFileRoute('/run')({
+  validateSearch: (search) => ({
+    run: typeof search.run === 'string' ? search.run : '',
+  }),
+  component: RunPage,
+})
 
 function RunPage() {
   const { runs, loading, error } = useHistoryRuns()
-  const [selectedRun, setSelectedRun] = useState('')
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  const initialRunId = useMemo(() => search.run || runs[0]?.run_id || '', [search.run, runs])
+  const [selectedRun, setSelectedRun] = useState(initialRunId)
+
+  useEffect(() => {
+    setSelectedRun(initialRunId)
+  }, [initialRunId])
 
   const run = runs.find((entry) => entry.run_id === selectedRun) ?? runs[0]
 
@@ -21,9 +34,16 @@ function RunPage() {
     <section className="grid gap-4">
       <Card className="grid gap-3 p-4">
         <h2 className="text-lg font-bold">Run Detail</h2>
-        <Select value={run.run_id} onChange={(e) => setSelectedRun(e.target.value)}>
+        <Select
+          value={run.run_id}
+          onChange={(e) => {
+            const next = e.target.value
+            setSelectedRun(next)
+            navigate({ to: '/run', search: { run: next }, replace: true })
+          }}
+        >
           {runs.map((entry) => (
-            <option key={entry.run_id} value={entry.run_id}>
+            <option key={`${entry.run_id}-${entry.timestamp}`} value={entry.run_id}>
               {entry.run_id} · {entry.timestamp}
             </option>
           ))}

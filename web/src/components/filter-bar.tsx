@@ -21,16 +21,16 @@ export function FilterBar({
   onReset: () => void
 }) {
   return (
-    <section className="grid gap-3 rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+    <section className="grid gap-3 rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Filters</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Scope</h2>
         <Button variant="secondary" size="sm" onClick={onReset}>
           Reset
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Input
-          placeholder="Search sha / run / branch"
+          placeholder="Search run / sha / branch / checker"
           value={filters.query}
           onChange={(e) => onChange({ query: e.target.value })}
         />
