@@ -1,0 +1,39 @@
+package ci
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+)
+
+func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve current test file")
+	}
+
+	actionPath := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", "..", "action.yml"))
+	raw, err := os.ReadFile(actionPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", actionPath, err)
+	}
+
+	content := string(raw)
+	required := []string{
+		"using: \"composite\"",
+		"uses: actions/checkout@v4",
+		"ref: ${{ inputs.gh-pages-branch }}",
+		"RUNNER_OS",
+		"RUNNER_ARCH",
+		"cairn ingest \"${{ inputs.ingest-file }}\" --pages-dir \"${{ github.workspace }}/gh-pages\"",
+		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",
+	}
+
+	for _, needle := range required {
+		if !strings.Contains(content, needle) {
+			t.Fatalf("action.yml missing expected content: %q", needle)
+		}
+	}
+}

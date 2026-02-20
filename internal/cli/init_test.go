@@ -36,6 +36,22 @@ func TestInitCommandScaffoldsDefaults(t *testing.T) {
 		t.Fatalf("unexpected cairn.toml contents:\n%s", string(cairnToml))
 	}
 
+	readme, err := os.ReadFile(filepath.Join(dir, "README.md"))
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	if string(readme) != defaultReadme {
+		t.Fatalf("unexpected README.md contents:\n%s", string(readme))
+	}
+
+	adapters, err := os.ReadFile(filepath.Join(dir, "docs", "adapters.md"))
+	if err != nil {
+		t.Fatalf("read docs/adapters.md: %v", err)
+	}
+	if string(adapters) != defaultAdaptersDoc {
+		t.Fatalf("unexpected docs/adapters.md contents:\n%s", string(adapters))
+	}
+
 	workflow, err := os.ReadFile(filepath.Join(dir, ".github", "workflows", "cairn.yml"))
 	if err != nil {
 		t.Fatalf("read workflow: %v", err)
@@ -62,6 +78,18 @@ func TestInitCommandWarnsAndSkipsExistingFiles(t *testing.T) {
 	if err := os.WriteFile("cairn.toml", existingToml, 0o644); err != nil {
 		t.Fatalf("write existing cairn.toml: %v", err)
 	}
+	existingReadme := []byte("existing readme\n")
+	if err := os.WriteFile("README.md", existingReadme, 0o644); err != nil {
+		t.Fatalf("write existing README.md: %v", err)
+	}
+	if err := os.MkdirAll("docs", 0o755); err != nil {
+		t.Fatalf("create docs dir: %v", err)
+	}
+	existingAdapters := []byte("existing adapters\n")
+	adaptersPath := filepath.Join("docs", "adapters.md")
+	if err := os.WriteFile(adaptersPath, existingAdapters, 0o644); err != nil {
+		t.Fatalf("write existing docs/adapters.md: %v", err)
+	}
 	if err := os.MkdirAll(filepath.Join(".github", "workflows"), 0o755); err != nil {
 		t.Fatalf("create workflow dir: %v", err)
 	}
@@ -82,6 +110,12 @@ func TestInitCommandWarnsAndSkipsExistingFiles(t *testing.T) {
 	if !strings.Contains(stderr, "warning: cairn.toml already exists; skipping") {
 		t.Fatalf("missing existing cairn.toml warning: %q", stderr)
 	}
+	if !strings.Contains(stderr, "warning: README.md already exists; skipping") {
+		t.Fatalf("missing existing README.md warning: %q", stderr)
+	}
+	if !strings.Contains(stderr, "warning: docs/adapters.md already exists; skipping") {
+		t.Fatalf("missing existing docs/adapters.md warning: %q", stderr)
+	}
 	if !strings.Contains(stderr, "warning: .github/workflows/cairn.yml already exists; skipping") {
 		t.Fatalf("missing existing workflow warning: %q", stderr)
 	}
@@ -92,6 +126,22 @@ func TestInitCommandWarnsAndSkipsExistingFiles(t *testing.T) {
 	}
 	if !bytes.Equal(gotToml, existingToml) {
 		t.Fatalf("expected existing cairn.toml to be preserved")
+	}
+
+	gotReadme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	if !bytes.Equal(gotReadme, existingReadme) {
+		t.Fatalf("expected existing README.md to be preserved")
+	}
+
+	gotAdapters, err := os.ReadFile(adaptersPath)
+	if err != nil {
+		t.Fatalf("read docs/adapters.md: %v", err)
+	}
+	if !bytes.Equal(gotAdapters, existingAdapters) {
+		t.Fatalf("expected existing docs/adapters.md to be preserved")
 	}
 
 	gotWorkflow, err := os.ReadFile(workflowPath)

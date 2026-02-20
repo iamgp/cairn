@@ -1,0 +1,11 @@
+[
+  {
+    "code": "F401",
+    "message": "`os` imported but unused",
+    "filename": "src/app.py",
+    "location": {
+      "row": 1,
+      "column": 1
+    }
+  }
+]

@@ -1,0 +1,134 @@
+name: "Cairn Ingest to gh-pages"
+description: "Download cairn for the current runner, ingest a run record into gh-pages history, and push updates"
+
+inputs:
+  ingest-file:
+    description: "Path to the run record JSON file to ingest"
+    required: true
+  gh-pages-branch:
+    description: "Branch that stores the published cairn history"
+    required: false
+    default: "gh-pages"
+  cairn-version:
+    description: "Release tag to download (use 'latest' for the newest release)"
+    required: false
+    default: "latest"
+  commit-message:
+    description: "Commit message for gh-pages updates"
+    required: false
+    default: "cairn: ingest run record"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout gh-pages branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.gh-pages-branch }}
+        path: gh-pages
+        fetch-depth: 0
+
+    - name: Download cairn binary
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        case "${RUNNER_OS}" in
+          Linux) os="linux" ;;
+          macOS) os="darwin" ;;
+          Windows) os="windows" ;;
+          *)
+            echo "Unsupported runner OS: ${RUNNER_OS}" >&2
+            exit 1
+            ;;
+        esac
+
+        case "${RUNNER_ARCH}" in
+          X64) arch="amd64" ;;
+          ARM64) arch="arm64" ;;
+          X86) arch="386" ;;
+          *)
+            echo "Unsupported runner architecture: ${RUNNER_ARCH}" >&2
+            exit 1
+            ;;
+        esac
+
+        version="${{ inputs.cairn-version }}"
+        if [ "${version}" = "latest" ]; then
+          release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download"
+        else
+          release_base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${version}"
+        fi
+
+        extension=""
+        if [ "${os}" = "windows" ]; then
+          extension=".exe"
+        fi
+
+        tmp_dir="${RUNNER_TEMP}/cairn-bin"
+        rm -rf "${tmp_dir}"
+        mkdir -p "${tmp_dir}"
+
+        candidates=(
+          "cairn-${os}-${arch}.tar.gz"
+          "cairn_${os}_${arch}.tar.gz"
+          "cairn-${os}-${arch}${extension}"
+          "cairn_${os}_${arch}${extension}"
+        )
+
+        downloaded=""
+        for asset in "${candidates[@]}"; do
+          url="${release_base_url}/${asset}"
+          target="${tmp_dir}/${asset}"
+          if curl -fsSL "${url}" -o "${target}"; then
+            downloaded="${target}"
+            break
+          fi
+        done
+
+        if [ -z "${downloaded}" ]; then
+          echo "Unable to download cairn release asset for ${os}/${arch} from ${release_base_url}" >&2
+          exit 1
+        fi
+
+        if [[ "${downloaded}" == *.tar.gz ]]; then
+          tar -xzf "${downloaded}" -C "${tmp_dir}"
+          cairn_path="$(find "${tmp_dir}" -type f -name "cairn${extension}" | head -n 1)"
+        else
+          cairn_path="${downloaded}"
+        fi
+
+        if [ -z "${cairn_path}" ] || [ ! -f "${cairn_path}" ]; then
+          echo "Downloaded asset did not contain cairn${extension}" >&2
+          exit 1
+        fi
+
+        install_dir="${RUNNER_TEMP}/cairn-install"
+        mkdir -p "${install_dir}"
+        cp "${cairn_path}" "${install_dir}/cairn${extension}"
+        chmod +x "${install_dir}/cairn${extension}"
+
+        echo "${install_dir}" >> "${GITHUB_PATH}"
+
+    - name: Ingest run record
+      shell: bash
+      run: cairn ingest "${{ inputs.ingest-file }}" --pages-dir "${{ github.workspace }}/gh-pages"
+
+    - name: Commit and push gh-pages changes
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{ github.workspace }}/gh-pages"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git add history.ndjson
+
+        if git diff --cached --quiet; then
+          echo "No gh-pages changes to commit"
+          exit 0
+        fi
+
+        git commit -m "${{ inputs.commit-message }}"
+        git push origin "HEAD:${{ inputs.gh-pages-branch }}"

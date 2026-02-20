@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "diagnostics": [
+    {
+      "code": "reportUnknownVariableType",
+      "message": "Type of \"payload\" is unknown",
+      "severity": "error",
+      "location": {
+        "path": "src/lib.py",
+        "line": 4,
+        "column": 2
+      }
+    }
+  ]
+}

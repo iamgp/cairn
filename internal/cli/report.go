@@ -1,13 +1,1464 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+var errReportNoPagesDir = errors.New("report requires --pages-dir")
+
+type reportOptions struct {
+	pagesDir string
+	outPath  string
+}
 
 func newReportCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "report",
-		Short: "Generate reports from stored data",
+		Short: "Generate static report shell",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
+			opts, err := parseReportCommandArgs(args)
+			if errors.Is(err, errReportNoPagesDir) {
+				return cmd.Help()
+			}
+			if err != nil {
+				return err
+			}
+
+			return writeReportShell(opts)
 		},
 	}
 }
+
+func parseReportCommandArgs(args []string) (reportOptions, error) {
+	opts := reportOptions{}
+	var positional []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case strings.HasPrefix(arg, "--pages-dir="):
+			opts.pagesDir = strings.TrimPrefix(arg, "--pages-dir=")
+		case arg == "--pages-dir":
+			if i+1 >= len(args) {
+				return reportOptions{}, fmt.Errorf("missing value for --pages-dir")
+			}
+			i++
+			opts.pagesDir = args[i]
+		case strings.HasPrefix(arg, "--out="):
+			opts.outPath = strings.TrimPrefix(arg, "--out=")
+		case arg == "--out":
+			if i+1 >= len(args) {
+				return reportOptions{}, fmt.Errorf("missing value for --out")
+			}
+			i++
+			opts.outPath = args[i]
+		case strings.HasPrefix(arg, "--"):
+			return reportOptions{}, fmt.Errorf("unknown flag %q", arg)
+		default:
+			positional = append(positional, arg)
+		}
+	}
+
+	if len(positional) > 0 {
+		return reportOptions{}, fmt.Errorf("report does not accept positional arguments")
+	}
+	if strings.TrimSpace(opts.pagesDir) == "" {
+		return reportOptions{}, errReportNoPagesDir
+	}
+
+	if strings.TrimSpace(opts.outPath) == "" {
+		opts.outPath = filepath.Join(opts.pagesDir, "index.html")
+	}
+
+	return opts, nil
+}
+
+func writeReportShell(opts reportOptions) error {
+	outDir := filepath.Dir(opts.outPath)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
+	}
+	if err := os.WriteFile(opts.outPath, []byte(buildReportShellHTML()), 0o644); err != nil {
+		return fmt.Errorf("write report shell: %w", err)
+	}
+	return nil
+}
+
+func buildReportShellHTML() string {
+	return strings.ReplaceAll(reportShellHTMLTemplate, "__BT__", "`")
+}
+
+const reportShellHTMLTemplate = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cairn Report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --border: #d8dee4;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0f766e;
+      --accent-soft: #d9f5ef;
+      --error: #991b1b;
+      --warn: #9a6700;
+      --ok: #166534;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% -10%, #e9fffa 0%, rgba(233,255,250,0) 38%),
+        radial-gradient(circle at 85% 0%, #edf4ff 0%, rgba(237,244,255,0) 35%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .layout {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(1.5rem, 1.2rem + 2vw, 2.3rem);
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .nav a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    .nav a:hover { transform: translateY(-1px); }
+    .nav a.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #064e46;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      padding: 18px;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+      animation: enter 220ms ease-out both;
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stack { display: grid; gap: 12px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      margin: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fbfcfd;
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric-value {
+      margin: 0;
+      font-size: 1.4rem;
+      font-weight: 650;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 4px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .field input, .field select {
+      min-width: 0;
+      font-size: 0.92rem;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid #eceff2;
+      padding: 9px 10px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    thead th {
+      background: #fafbfc;
+      color: #3b4651;
+      font-weight: 600;
+    }
+
+    .status {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      text-transform: capitalize;
+      font-weight: 600;
+    }
+
+    .status.failed, .status.error { background: #fee2e2; color: var(--error); }
+    .status.skipped { background: #fef3c7; color: var(--warn); }
+    .status.passed { background: #dcfce7; color: var(--ok); }
+    .status.unknown { background: #e6edf3; color: #3b4651; }
+
+    .status.tiny {
+      font-size: 0.72rem;
+      padding: 1px 7px;
+    }
+
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chart-shell {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfcfd;
+      display: grid;
+      gap: 10px;
+    }
+
+    .chart-wrap {
+      overflow-x: auto;
+      border: 1px solid #e6eaf0;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .uplot-host {
+      min-width: 680px;
+    }
+
+    .empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .check-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .check-block {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fbfcfd;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .check-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .check-title {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .inline-metrics {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .item-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .item-panel {
+      border: 1px solid #e6eaf0;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .item-panel > summary {
+      list-style: none;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) auto auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+    }
+
+    .item-panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .item-panel[open] > summary {
+      border-bottom: 1px solid #e6eaf0;
+      background: #f8fafc;
+    }
+
+    .item-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      overflow-wrap: anywhere;
+    }
+
+    .sparkline {
+      width: 92px;
+      height: 24px;
+      display: block;
+    }
+
+    .item-body {
+      padding: 10px 12px 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .log-block {
+      margin: 0;
+      padding: 10px;
+      border: 1px solid #e6eaf0;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #dbe4f1;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .flaky-table td.item-id {
+      max-width: 320px;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/uplot@1.6.31/dist/uPlot.min.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { html, render, useEffect, useRef } from "https://esm.sh/htm/preact/standalone?external=preact";
+    import uPlot from "https://esm.sh/uplot@1.6.31";
+
+    const routes = {
+      "/dashboard": { title: "Dashboard" },
+      "/pr": { title: "PR View", text: "Per-PR status and checker summaries will render here." },
+      "/run": { title: "Run Detail" },
+      "/trends": { title: "Trends", text: "Historical trend charts and aggregates will render here." },
+    };
+
+    const navItems = [
+      { path: "/dashboard", label: "Dashboard" },
+      { path: "/pr", label: "PR View" },
+      { path: "/run", label: "Run Detail" },
+      { path: "/trends", label: "Trends" },
+    ];
+
+    const defaultFilters = {
+      checker: "",
+      status: "",
+      branch: "",
+      matrix: "",
+      from: "",
+      to: "",
+      pr: "",
+      sha: "",
+      run: "",
+    };
+
+    const normalize = (value) => (value == null ? "" : String(value).trim());
+
+    const parseHashState = () => {
+      const raw = window.location.hash.replace(/^#/, "") || "/dashboard";
+      const [pathPart, searchPart] = raw.split("?");
+      const route = routes[pathPart] ? pathPart : "/dashboard";
+      const query = new URLSearchParams(searchPart || "");
+      const filters = { ...defaultFilters };
+      Object.keys(filters).forEach((key) => {
+        filters[key] = normalize(query.get(key));
+      });
+      return { route, filters };
+    };
+
+    const serializeHashState = (route, filters) => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        const trimmed = normalize(value);
+        if (trimmed !== "") {
+          params.set(key, trimmed);
+        }
+      });
+      const query = params.toString();
+      return "#" + route + (query ? "?" + query : "");
+    };
+
+    const updateHashFilters = (route, patch) => {
+      const state = parseHashState();
+      const next = { ...state.filters, ...patch };
+      window.location.hash = serializeHashState(route, next);
+    };
+
+    const parseDateStart = (value) => {
+      if (!value) {
+        return null;
+      }
+      const parsed = new Date(value + "T00:00:00Z");
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const parseDateEnd = (value) => {
+      if (!value) {
+        return null;
+      }
+      const parsed = new Date(value + "T23:59:59.999Z");
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const runStatus = (run) => {
+      const checks = Array.isArray(run && run.checks) ? run.checks : [];
+      let status = "passed";
+      for (const check of checks) {
+        const checkStatus = normalize(check && check.status).toLowerCase();
+        if (checkStatus === "error") {
+          return "error";
+        }
+        if (checkStatus === "failed") {
+          status = "failed";
+          continue;
+        }
+        if (status === "passed" && checkStatus === "skipped") {
+          status = "skipped";
+        }
+      }
+      return status;
+    };
+
+    const matrixMatches = (matrix, rawFilter) => {
+      const filter = normalize(rawFilter);
+      if (!filter) {
+        return true;
+      }
+      const entries = Object.entries(matrix || {});
+      if (entries.length === 0) {
+        return false;
+      }
+      const index = filter.indexOf(":");
+      if (index === -1) {
+        const needle = filter.toLowerCase();
+        return entries.some(([key, value]) => {
+          return key.toLowerCase().includes(needle) || String(value).toLowerCase().includes(needle);
+        });
+      }
+      const keyNeedle = filter.slice(0, index).trim().toLowerCase();
+      const valueNeedle = filter.slice(index + 1).trim().toLowerCase();
+      if (!keyNeedle) {
+        return false;
+      }
+      return entries.some(([key, value]) => {
+        if (key.toLowerCase() !== keyNeedle) {
+          return false;
+        }
+        if (!valueNeedle) {
+          return true;
+        }
+        return String(value).toLowerCase().includes(valueNeedle);
+      });
+    };
+
+    const hasChecker = (checks, checkerFilter) => {
+      const needle = normalize(checkerFilter).toLowerCase();
+      if (!needle) {
+        return true;
+      }
+      return (checks || []).some((check) => normalize(check && check.tool).toLowerCase().includes(needle));
+    };
+
+    const matchesFilters = (run, filters) => {
+      const runDate = new Date(run.timestamp);
+      const fromDate = parseDateStart(filters.from);
+      const toDate = parseDateEnd(filters.to);
+      const statusFilter = normalize(filters.status).toLowerCase();
+      const branchFilter = normalize(filters.branch).toLowerCase();
+      const shaFilter = normalize(filters.sha).toLowerCase();
+      const prFilter = normalize(filters.pr);
+      const runSha = normalize(run.sha).toLowerCase();
+      const runShaFull = normalize(run.sha_full).toLowerCase();
+
+      if (fromDate && (Number.isNaN(runDate.getTime()) || runDate < fromDate)) {
+        return false;
+      }
+      if (toDate && (Number.isNaN(runDate.getTime()) || runDate > toDate)) {
+        return false;
+      }
+      if (statusFilter && runStatus(run) !== statusFilter) {
+        return false;
+      }
+      if (branchFilter && normalize(run.branch).toLowerCase() !== branchFilter) {
+        return false;
+      }
+      if (prFilter) {
+        const runPR = run.pr == null ? "" : String(run.pr);
+        if (runPR !== prFilter) {
+          return false;
+        }
+      }
+      if (shaFilter && !runSha.startsWith(shaFilter) && !runShaFull.startsWith(shaFilter)) {
+        return false;
+      }
+      if (!matrixMatches(run.matrix, filters.matrix)) {
+        return false;
+      }
+      if (!hasChecker(run.checks, filters.checker)) {
+        return false;
+      }
+      return true;
+    };
+
+    const formatMatrix = (matrix) => {
+      const entries = Object.entries(matrix || {});
+      if (entries.length === 0) {
+        return "-";
+      }
+      return entries.map(([key, value]) => key + "=" + value).join(", ");
+    };
+
+    const formatPR = (pr) => (pr == null ? "-" : "#" + pr);
+
+    const formatPercent = (value) => (value == null ? "-" : value.toFixed(1) + "%");
+
+    const formatDuration = (seconds) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        return "-";
+      }
+      if (seconds < 60) {
+        return seconds.toFixed(1) + "s";
+      }
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+      return minutes + "m " + remainder.toFixed(1) + "s";
+    };
+
+    const parseTimestamp = (run) => {
+      const parsed = new Date(run && run.timestamp);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const runDuration = (run) => {
+      return (run.checks || []).reduce((total, check) => {
+        const value = Number(check && check.duration_s);
+        return Number.isFinite(value) ? total + value : total;
+      }, 0);
+    };
+
+    const checkerStatusScore = (status) => {
+      const normalized = normalize(status).toLowerCase();
+      if (normalized === "passed") {
+        return 1;
+      }
+      if (normalized === "skipped") {
+        return 0.5;
+      }
+      if (normalized === "failed" || normalized === "error") {
+        return 0;
+      }
+      return null;
+    };
+
+    const itemStatusCounts = (items) => {
+      const counts = { passed: 0, failed: 0, error: 0, skipped: 0, unknown: 0 };
+      for (const item of items || []) {
+        const status = normalize(item && item.status).toLowerCase();
+        if (status === "passed" || status === "failed" || status === "error" || status === "skipped") {
+          counts[status] += 1;
+          continue;
+        }
+        counts.unknown += 1;
+      }
+      return counts;
+    };
+
+    const buildItemTrend = (runs, toolName, itemID) => {
+      const normalizedTool = normalize(toolName).toLowerCase();
+      const normalizedID = normalize(itemID).toLowerCase();
+      if (!normalizedTool || !normalizedID) {
+        return [];
+      }
+
+      const hits = Array.from(runs)
+        .sort((left, right) => {
+          const leftDate = parseTimestamp(left);
+          const rightDate = parseTimestamp(right);
+          const leftMs = leftDate ? leftDate.getTime() : 0;
+          const rightMs = rightDate ? rightDate.getTime() : 0;
+          return leftMs - rightMs;
+        })
+        .flatMap((run) => {
+          const check = (run.checks || []).find((entry) => normalize(entry && entry.tool).toLowerCase() === normalizedTool);
+          if (!check) {
+            return [];
+          }
+          const item = (check.items || []).find((entry) => normalize(entry && entry.id).toLowerCase() === normalizedID);
+          if (!item) {
+            return [];
+          }
+          return [checkerStatusScore(item.status)];
+        })
+        .filter((value) => value != null);
+
+      return hits.slice(-20);
+    };
+
+    const buildSparkPath = (values, width, height, padding) => {
+      if (values.length === 0) {
+        return "";
+      }
+      const denominator = Math.max(values.length - 1, 1);
+      return values.map((value, index) => {
+        const x = padding + (index / denominator) * (width - padding * 2);
+        const y = height - padding - value * (height - padding * 2);
+        return (index === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1);
+      }).join(" ");
+    };
+
+    const pickRunForDetail = (runs, runID) => {
+      const chosenID = normalize(runID);
+      const sortedRuns = Array.from(runs).sort((left, right) => {
+        const rightDate = parseTimestamp(right);
+        const leftDate = parseTimestamp(left);
+        const rightMs = rightDate ? rightDate.getTime() : 0;
+        const leftMs = leftDate ? leftDate.getTime() : 0;
+        return rightMs - leftMs;
+      });
+      if (sortedRuns.length === 0) {
+        return null;
+      }
+      if (!chosenID) {
+        return sortedRuns[0];
+      }
+      return sortedRuns.find((run) => normalize(run.run_id) === chosenID) || sortedRuns[0];
+    };
+
+    const computeSummary = (runs) => {
+      const now = Date.now();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const windowStart = now - sevenDaysMs;
+      let totalDuration = 0;
+      let passWindowCount = 0;
+      let totalWindowCount = 0;
+      const checkerStates = new Map();
+
+      for (const run of runs) {
+        totalDuration += runDuration(run);
+        const timestamp = parseTimestamp(run);
+        if (timestamp && timestamp.getTime() >= windowStart) {
+          totalWindowCount += 1;
+          if (runStatus(run) === "passed") {
+            passWindowCount += 1;
+          }
+
+          for (const check of run.checks || []) {
+            const tool = normalize(check && check.tool) || "unknown";
+            const status = normalize(check && check.status).toLowerCase();
+            if (!checkerStates.has(tool)) {
+              checkerStates.set(tool, { pass: false, fail: false });
+            }
+            const entry = checkerStates.get(tool);
+            if (status === "passed") {
+              entry.pass = true;
+            }
+            if (status === "failed" || status === "error") {
+              entry.fail = true;
+            }
+          }
+        }
+      }
+
+      const flakyCount = Array.from(checkerStates.values()).filter((entry) => entry.pass && entry.fail).length;
+      return {
+        totalRuns: runs.length,
+        passRate7d: totalWindowCount === 0 ? null : (passWindowCount / totalWindowCount) * 100,
+        flakyCount,
+        avgDuration: runs.length === 0 ? 0 : totalDuration / runs.length,
+      };
+    };
+
+    const buildDashboardTrends = (runs) => {
+      const byDay = new Map();
+      for (const run of runs) {
+        const timestamp = parseTimestamp(run);
+        if (!timestamp) {
+          continue;
+        }
+        const day = timestamp.toISOString().slice(0, 10);
+        if (!byDay.has(day)) {
+          byDay.set(day, { passed: 0, total: 0, duration: 0, count: 0 });
+        }
+        const entry = byDay.get(day);
+        entry.total += 1;
+        if (runStatus(run) === "passed") {
+          entry.passed += 1;
+        }
+        entry.duration += runDuration(run);
+        entry.count += 1;
+      }
+
+      const days = Array.from(byDay.keys()).sort();
+      const x = [];
+      const passRate = [];
+      const duration = [];
+
+      for (const day of days) {
+        const point = byDay.get(day);
+        const date = new Date(day + "T00:00:00Z");
+        if (Number.isNaN(date.getTime())) {
+          continue;
+        }
+        x.push(date.getTime() / 1000);
+        passRate.push(point.total === 0 ? null : (point.passed / point.total) * 100);
+        duration.push(point.count === 0 ? null : point.duration / point.count);
+      }
+
+      return { x, passRate, duration };
+    };
+
+    const statusBucket = (status) => {
+      const normalized = normalize(status).toLowerCase();
+      if (normalized === "passed") {
+        return "pass";
+      }
+      if (normalized === "failed" || normalized === "error") {
+        return "fail";
+      }
+      return "";
+    };
+
+    const buildFlakyItemRows = (runs) => {
+      const sortedRuns = Array.from(runs).sort((left, right) => {
+        const leftDate = parseTimestamp(left);
+        const rightDate = parseTimestamp(right);
+        const leftMs = leftDate ? leftDate.getTime() : 0;
+        const rightMs = rightDate ? rightDate.getTime() : 0;
+        return leftMs - rightMs;
+      });
+
+      const byItem = new Map();
+      for (const run of sortedRuns) {
+        for (const check of run.checks || []) {
+          const tool = normalize(check && check.tool) || "unknown";
+          for (const item of check.items || []) {
+            const id = normalize(item && item.id);
+            if (!id) {
+              continue;
+            }
+            const bucket = statusBucket(item && item.status);
+            if (!bucket) {
+              continue;
+            }
+            const key = tool + "\x00" + id;
+            if (!byItem.has(key)) {
+              byItem.set(key, {
+                tool,
+                id,
+                flips: 0,
+                pass: 0,
+                fail: 0,
+                observations: 0,
+                lastBucket: "",
+                lastStatus: "unknown",
+              });
+            }
+            const entry = byItem.get(key);
+            entry.observations += 1;
+            if (bucket === "pass") {
+              entry.pass += 1;
+            } else {
+              entry.fail += 1;
+            }
+            if (entry.lastBucket && entry.lastBucket !== bucket) {
+              entry.flips += 1;
+            }
+            entry.lastBucket = bucket;
+            entry.lastStatus = normalize(item && item.status).toLowerCase() || "unknown";
+          }
+        }
+      }
+
+      return Array.from(byItem.values())
+        .filter((entry) => entry.flips > 0)
+        .sort((left, right) => {
+          if (right.flips !== left.flips) {
+            return right.flips - left.flips;
+          }
+          if (right.observations !== left.observations) {
+            return right.observations - left.observations;
+          }
+          const toolDiff = left.tool.localeCompare(right.tool);
+          if (toolDiff !== 0) {
+            return toolDiff;
+          }
+          return left.id.localeCompare(right.id);
+        });
+    };
+
+    function UPlotLineChart({ title, xValues, yValues, yLabel, color, valueSuffix }) {
+      const hostRef = useRef(null);
+
+      useEffect(() => {
+        if (!hostRef.current || xValues.length === 0 || !yValues.some((value) => value != null)) {
+          return undefined;
+        }
+
+        const chartHost = hostRef.current;
+        const width = Math.max(chartHost.clientWidth, 680);
+        const plot = new uPlot({
+          width,
+          height: 220,
+          scales: {
+            x: { time: true },
+            y: { auto: true },
+          },
+          axes: [
+            {},
+            {
+              label: yLabel,
+              values: (_, ticks) => ticks.map((tick) => tick.toFixed(1) + valueSuffix),
+            },
+          ],
+          series: [
+            {},
+            {
+              stroke: color,
+              width: 2,
+            },
+          ],
+          legend: { show: false },
+        }, [xValues, yValues], chartHost);
+
+        const onResize = () => {
+          plot.setSize({ width: Math.max(chartHost.clientWidth, 680), height: 220 });
+        };
+        window.addEventListener("resize", onResize);
+
+        return () => {
+          window.removeEventListener("resize", onResize);
+          plot.destroy();
+        };
+      }, [xValues, yValues, yLabel, color, valueSuffix]);
+
+      return html__BT__
+        <section class="chart-shell">
+          <h3>${title}</h3>
+          <div class="chart-wrap">
+            <div class="uplot-host" ref=${hostRef}></div>
+          </div>
+        </section>
+      __BT__;
+    }
+
+    function ItemSparkline({ values }) {
+      if (values.length === 0) {
+        return html__BT__<span class="empty">no trend</span>__BT__;
+      }
+      const width = 92;
+      const height = 24;
+      const padding = 2;
+      const path = buildSparkPath(values, width, height, padding);
+      return html__BT__
+        <svg class="sparkline" viewBox=${"0 0 " + width + " " + height} role="img" aria-label="Last 20 results">
+          <line x1="0" y1=${height - padding} x2=${width} y2=${height - padding} stroke="#d8dee4" stroke-width="1" />
+          <line x1="0" y1=${height / 2} x2=${width} y2=${height / 2} stroke="#eef2f6" stroke-width="1" />
+          <path d=${path} fill="none" stroke="#0f766e" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      __BT__;
+    }
+
+    let runsCache = [];
+    let runsLoaded = false;
+    let runsError = "";
+    const historyCacheRawKey = "cairn:history:raw";
+    const historyCacheETagKey = "cairn:history:etag";
+    const historyCacheSizeKey = "cairn:history:size";
+    const textEncoder = new TextEncoder();
+
+    const historyByteLength = (raw) => textEncoder.encode(raw).length;
+
+    const readHistoryCache = () => {
+      try {
+        const raw = localStorage.getItem(historyCacheRawKey) || "";
+        const etag = localStorage.getItem(historyCacheETagKey) || "";
+        const parsedSize = Number.parseInt(localStorage.getItem(historyCacheSizeKey) || "", 10);
+        const size = Number.isFinite(parsedSize) && parsedSize >= 0 ? parsedSize : historyByteLength(raw);
+        return { raw, etag, size };
+      } catch (_err) {
+        return { raw: "", etag: "", size: 0 };
+      }
+    };
+
+    const writeHistoryCache = (raw, etag) => {
+      try {
+        localStorage.setItem(historyCacheRawKey, raw);
+        localStorage.setItem(historyCacheETagKey, etag || "");
+        localStorage.setItem(historyCacheSizeKey, String(historyByteLength(raw)));
+      } catch (_err) {
+        // Ignore storage failures; the report can still render with in-memory data.
+      }
+    };
+
+    const parseRuns = (raw) =>
+      raw
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+
+    const loadRuns = async () => {
+      if (runsLoaded || runsError) {
+        return;
+      }
+      const cached = readHistoryCache();
+      try {
+        if (cached.raw && cached.etag && cached.size > 0) {
+          const incrementalResponse = await fetch("./history.ndjson", {
+            cache: "no-store",
+            headers: {
+              "If-Range": cached.etag,
+              Range: "bytes=" + cached.size + "-",
+            },
+          });
+          if (incrementalResponse.status === 206) {
+            const appendedRaw = await incrementalResponse.text();
+            const mergedRaw = cached.raw + appendedRaw;
+            const nextEtag = incrementalResponse.headers.get("ETag") || cached.etag;
+            writeHistoryCache(mergedRaw, nextEtag);
+            runsCache = parseRuns(mergedRaw);
+            runsLoaded = true;
+            return;
+          }
+          if (incrementalResponse.ok) {
+            const fullRaw = await incrementalResponse.text();
+            const fullEtag = incrementalResponse.headers.get("ETag") || "";
+            writeHistoryCache(fullRaw, fullEtag);
+            runsCache = parseRuns(fullRaw);
+            runsLoaded = true;
+            return;
+          }
+          runsCache = parseRuns(cached.raw);
+          runsLoaded = true;
+          return;
+        }
+
+        const response = await fetch("./history.ndjson", { cache: "no-store" });
+        if (!response.ok) {
+          runsLoaded = true;
+          return;
+        }
+        const raw = await response.text();
+        const etag = response.headers.get("ETag") || "";
+        writeHistoryCache(raw, etag);
+        runsCache = parseRuns(raw);
+        runsLoaded = true;
+      } catch (err) {
+        if (cached.raw) {
+          try {
+            runsCache = parseRuns(cached.raw);
+            runsLoaded = true;
+            return;
+          } catch (_parseErr) {
+            // Fall through to a surfaced error.
+          }
+        }
+        runsError = err instanceof Error ? err.message : String(err);
+      }
+    };
+
+    function Dashboard({ filters }) {
+      const filtered = runsCache.filter((run) => matchesFilters(run, filters));
+      const summary = computeSummary(filtered);
+      const trends = buildDashboardTrends(filtered);
+      const flakyRows = buildFlakyItemRows(filtered);
+      const recentRuns = Array.from(filtered)
+        .sort((left, right) => {
+          const rightDate = parseTimestamp(right);
+          const leftDate = parseTimestamp(left);
+          const rightMs = rightDate ? rightDate.getTime() : 0;
+          const leftMs = leftDate ? leftDate.getTime() : 0;
+          return rightMs - leftMs;
+        })
+        .slice(0, 20);
+
+      return html__BT__
+        <section class="card stack">
+          <h2>Dashboard</h2>
+          <div class="filters">
+            <label class="field">Checker
+              <input
+                type="text"
+                value=${filters.checker}
+                onInput=${(event) => updateHashFilters("/dashboard", { checker: event.currentTarget.value })}
+                placeholder="ruff"
+              />
+            </label>
+            <label class="field">Status
+              <select
+                value=${filters.status}
+                onChange=${(event) => updateHashFilters("/dashboard", { status: event.currentTarget.value })}
+              >
+                <option value="">any</option>
+                <option value="passed">passed</option>
+                <option value="failed">failed</option>
+                <option value="error">error</option>
+                <option value="skipped">skipped</option>
+              </select>
+            </label>
+            <label class="field">Branch
+              <input
+                type="text"
+                value=${filters.branch}
+                onInput=${(event) => updateHashFilters("/dashboard", { branch: event.currentTarget.value })}
+                placeholder="main"
+              />
+            </label>
+            <label class="field">Matrix (key:value)
+              <input
+                type="text"
+                value=${filters.matrix}
+                onInput=${(event) => updateHashFilters("/dashboard", { matrix: event.currentTarget.value })}
+                placeholder="python:3.12"
+              />
+            </label>
+            <label class="field">From date
+              <input
+                type="date"
+                value=${filters.from}
+                onInput=${(event) => updateHashFilters("/dashboard", { from: event.currentTarget.value })}
+              />
+            </label>
+            <label class="field">To date
+              <input
+                type="date"
+                value=${filters.to}
+                onInput=${(event) => updateHashFilters("/dashboard", { to: event.currentTarget.value })}
+              />
+            </label>
+            <label class="field">PR #
+              <input
+                type="text"
+                value=${filters.pr}
+                onInput=${(event) => updateHashFilters("/dashboard", { pr: event.currentTarget.value })}
+                placeholder="123"
+              />
+            </label>
+            <label class="field">SHA
+              <input
+                type="text"
+                value=${filters.sha}
+                onInput=${(event) => updateHashFilters("/dashboard", { sha: event.currentTarget.value })}
+                placeholder="a1b2c3d"
+              />
+            </label>
+          </div>
+          ${runsError
+            ? html__BT__<p class="empty">Failed to load history: ${runsError}</p>__BT__
+            : filtered.length === 0
+              ? html__BT__<p class="empty">No runs matched active filters.</p>__BT__
+              : html__BT__
+                <section class="summary-grid" aria-label="Summary cards">
+                  <article class="metric">
+                    <p class="metric-label">Total Runs</p>
+                    <p class="metric-value">${summary.totalRuns}</p>
+                  </article>
+                  <article class="metric">
+                    <p class="metric-label">Pass Rate (7d)</p>
+                    <p class="metric-value">${formatPercent(summary.passRate7d)}</p>
+                  </article>
+                  <article class="metric">
+                    <p class="metric-label">Flaky Count</p>
+                    <p class="metric-value">${summary.flakyCount}</p>
+                  </article>
+                  <article class="metric">
+                    <p class="metric-label">Avg Duration</p>
+                    <p class="metric-value">${formatDuration(summary.avgDuration)}</p>
+                  </article>
+                </section>
+                <${UPlotLineChart}
+                  title="Pass Rate Trend"
+                  xValues=${trends.x}
+                  yValues=${trends.passRate}
+                  yLabel="Pass Rate"
+                  color="#0f766e"
+                  valueSuffix="%"
+                />
+                <${UPlotLineChart}
+                  title="Duration Trend"
+                  xValues=${trends.x}
+                  yValues=${trends.duration}
+                  yLabel="Avg Duration (s)"
+                  color="#2563eb"
+                  valueSuffix="s"
+                />
+                <section class="stack">
+                  <h3>Flaky Tests (Filtered Window)</h3>
+                  ${flakyRows.length === 0
+                    ? html__BT__<p class="empty">No flaky tests detected in the filtered window.</p>__BT__
+                    : html__BT__
+                      <div class="table-wrap">
+                        <table class="flaky-table">
+                          <thead>
+                            <tr>
+                              <th>Checker</th>
+                              <th>Item</th>
+                              <th>Flips</th>
+                              <th>Observations</th>
+                              <th>Pass</th>
+                              <th>Fail/Error</th>
+                              <th>Last Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${flakyRows.map((row) => html__BT__
+                              <tr>
+                                <td>${row.tool}</td>
+                                <td class="item-id">${row.id}</td>
+                                <td>${row.flips}</td>
+                                <td>${row.observations}</td>
+                                <td>${row.pass}</td>
+                                <td>${row.fail}</td>
+                                <td><span class=${"status tiny " + row.lastStatus}>${row.lastStatus}</span></td>
+                              </tr>
+                            __BT__)}
+                          </tbody>
+                        </table>
+                      </div>
+                    __BT__
+                  }
+                </section>
+                <section class="stack">
+                  <h3>Recent Runs</h3>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Timestamp</th>
+                          <th>Branch</th>
+                          <th>PR</th>
+                          <th>SHA</th>
+                          <th>Status</th>
+                          <th>Checkers</th>
+                          <th>Duration</th>
+                          <th>Matrix</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${recentRuns.map((run) => {
+                          const status = runStatus(run);
+                          const checks = Array.isArray(run.checks) ? run.checks : [];
+                          const visibleChecks = checks.slice(0, 4);
+                          const hiddenCount = Math.max(checks.length - visibleChecks.length, 0);
+                          return html__BT__
+                            <tr>
+                              <td>${run.timestamp || "-"}</td>
+                              <td>${run.branch || "-"}</td>
+                              <td>${formatPR(run.pr)}</td>
+                              <td>${run.sha || "-"}</td>
+                              <td><span class=${"status " + status}>${status}</span></td>
+                              <td>
+                                <div class="badge-row">
+                                  ${visibleChecks.map((check) => {
+                                    const checkStatus = normalize(check && check.status).toLowerCase() || "unknown";
+                                    const label = (normalize(check && check.tool) || "unknown") + ": " + (checkStatus || "unknown");
+                                    return html__BT__<span class=${"status tiny " + checkStatus}>${label}</span>__BT__;
+                                  })}
+                                  ${hiddenCount > 0 ? html__BT__<span class="empty">+${hiddenCount} more</span>__BT__ : null}
+                                </div>
+                              </td>
+                              <td>${formatDuration(runDuration(run))}</td>
+                              <td>${formatMatrix(run.matrix)}</td>
+                            </tr>
+                          __BT__;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              __BT__
+          }
+        </section>
+      __BT__;
+    }
+
+    function RunDetail({ filters }) {
+      const selected = pickRunForDetail(runsCache, filters.run);
+      if (runsError) {
+        return html__BT__
+          <section class="card stack">
+            <h2>Run Detail</h2>
+            <p class="empty">Failed to load history: ${runsError}</p>
+          </section>
+        __BT__;
+      }
+      if (!selected) {
+        return html__BT__
+          <section class="card stack">
+            <h2>Run Detail</h2>
+            <p class="empty">No runs available yet.</p>
+          </section>
+        __BT__;
+      }
+
+      const checks = Array.isArray(selected.checks) ? selected.checks : [];
+      const recentRuns = Array.from(runsCache)
+        .sort((left, right) => {
+          const rightDate = parseTimestamp(right);
+          const leftDate = parseTimestamp(left);
+          const rightMs = rightDate ? rightDate.getTime() : 0;
+          const leftMs = leftDate ? leftDate.getTime() : 0;
+          return rightMs - leftMs;
+        })
+        .slice(0, 80);
+
+      return html__BT__
+        <section class="card stack">
+          <h2>Run Detail</h2>
+          <label class="field">Run
+            <select
+              value=${normalize(selected.run_id)}
+              onChange=${(event) => updateHashFilters("/run", { run: event.currentTarget.value })}
+            >
+              ${recentRuns.map((run) => html__BT__
+                <option value=${normalize(run.run_id)}>
+                  ${normalize(run.run_id) || "-"} · ${normalize(run.timestamp) || "-"} · ${normalize(run.branch) || "-"}
+                </option>
+              __BT__)}
+            </select>
+          </label>
+
+          <div class="inline-metrics">
+            <strong>${normalize(selected.run_id) || "unknown run"}</strong>
+            <span>${normalize(selected.timestamp) || "-"}</span>
+            <span>${normalize(selected.branch) || "-"}</span>
+            <span>${formatPR(selected.pr)}</span>
+            <span>${normalize(selected.sha) || "-"}</span>
+            <span>${formatMatrix(selected.matrix)}</span>
+            <span class=${"status " + runStatus(selected)}>${runStatus(selected)}</span>
+          </div>
+
+          ${checks.length === 0
+            ? html__BT__<p class="empty">No checks were recorded for this run.</p>__BT__
+            : html__BT__
+              <section class="check-list">
+                ${checks.map((check) => {
+                  const status = normalize(check && check.status).toLowerCase() || "unknown";
+                  const tool = normalize(check && check.tool) || "unknown";
+                  const items = Array.isArray(check && check.items) ? check.items : [];
+                  const counts = itemStatusCounts(items);
+                  const summary = check && check.summary && typeof check.summary === "object" ? Object.entries(check.summary) : [];
+                  return html__BT__
+                    <article class="check-block">
+                      <header class="check-head">
+                        <h3 class="check-title">${tool}</h3>
+                        <span class=${"status " + status}>${status}</span>
+                      </header>
+                      <div class="summary-grid" aria-label="Per-check summary stats">
+                        <article class="metric">
+                          <p class="metric-label">Duration</p>
+                          <p class="metric-value">${formatDuration(Number(check && check.duration_s))}</p>
+                        </article>
+                        <article class="metric">
+                          <p class="metric-label">Items</p>
+                          <p class="metric-value">${items.length}</p>
+                        </article>
+                        <article class="metric">
+                          <p class="metric-label">Passed</p>
+                          <p class="metric-value">${counts.passed}</p>
+                        </article>
+                        <article class="metric">
+                          <p class="metric-label">Failed/Error</p>
+                          <p class="metric-value">${counts.failed + counts.error}</p>
+                        </article>
+                        <article class="metric">
+                          <p class="metric-label">Skipped</p>
+                          <p class="metric-value">${counts.skipped}</p>
+                        </article>
+                        ${summary.map(([key, value]) => html__BT__
+                          <article class="metric">
+                            <p class="metric-label">${key}</p>
+                            <p class="metric-value">${value}</p>
+                          </article>
+                        __BT__)}
+                      </div>
+                      <div class="item-list" aria-label="Per-check item list">
+                        ${items.length === 0
+                          ? html__BT__<p class="empty">No items in this check.</p>__BT__
+                          : items.map((item) => {
+                            const itemStatus = normalize(item && item.status).toLowerCase() || "unknown";
+                            const trend = buildItemTrend(runsCache, tool, item && item.id);
+                            return html__BT__
+                              <details class="item-panel">
+                                <summary>
+                                  <span class="item-id">${normalize(item && item.id) || "unknown item"}</span>
+                                  <span class=${"status tiny " + itemStatus}>${itemStatus}</span>
+                                  <span>${formatDuration(Number(item && item.duration_s))}</span>
+                                  <${ItemSparkline} values=${trend} />
+                                </summary>
+                                <div class="item-body">
+                                  ${normalize(item && item.message)
+                                    ? html__BT__<p>${item.message}</p>__BT__
+                                    : null}
+                                  <div>
+                                    <p class="metric-label">stdout</p>
+                                    <pre class="log-block">${normalize(item && item.stdout) || "(empty)"}</pre>
+                                  </div>
+                                  <div>
+                                    <p class="metric-label">stderr</p>
+                                    <pre class="log-block">${normalize(item && item.stderr) || "(empty)"}</pre>
+                                  </div>
+                                </div>
+                              </details>
+                            __BT__;
+                          })}
+                      </div>
+                    </article>
+                  __BT__;
+                })}
+              </section>
+            __BT__
+          }
+        </section>
+      __BT__;
+    }
+
+    function App() {
+      const state = parseHashState();
+      const route = state.route;
+      const view = routes[route];
+
+      return html__BT__
+        <main class="layout">
+          <header>
+            <h1 class="title">Cairn</h1>
+            <p class="subtitle">Static report shell</p>
+          </header>
+          <nav class="nav" aria-label="Primary">
+            ${navItems.map((item) => html__BT__
+              <a
+                href=${serializeHashState(item.path, state.filters)}
+                class=${item.path === route ? "active" : ""}
+                aria-current=${item.path === route ? "page" : undefined}
+              >${item.label}</a>
+            __BT__)}
+          </nav>
+          ${route === "/dashboard"
+            ? html__BT__<${Dashboard} filters=${state.filters} />__BT__
+            : route === "/run"
+              ? html__BT__<${RunDetail} filters=${state.filters} />__BT__
+            : html__BT__
+              <section class="card">
+                <h2>${view.title}</h2>
+                <p class="empty">${view.text}</p>
+              </section>
+            __BT__
+          }
+        </main>
+      __BT__;
+    }
+
+    const mount = async () => {
+      await loadRuns();
+      render(html__BT__<${App} />__BT__, document.getElementById("app"));
+    };
+
+    window.addEventListener("hashchange", mount);
+    mount();
+  </script>
+</body>
+</html>
+`
