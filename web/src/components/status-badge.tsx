@@ -1,16 +1,29 @@
 import { Badge } from './ui/badge'
 
-const statusClass: Record<string, string> = {
-  passed: 'bg-emerald-100 text-emerald-800',
-  failed: 'bg-rose-100 text-rose-800',
-  error: 'bg-red-100 text-red-800',
-  skipped: 'bg-amber-100 text-amber-800',
+const statusVariant: Record<string, 'success' | 'destructive' | 'warning' | 'secondary' | 'default'> = {
+  passed: 'success',
+  failed: 'destructive',
+  error: 'destructive',
+  skipped: 'warning',
+  running: 'secondary',
+}
+
+const statusTone: Record<string, string> = {
+  passed: 'ring-emerald-500/30',
+  failed: 'ring-rose-500/30',
+  error: 'ring-rose-500/30',
+  skipped: 'ring-amber-500/30',
+  running: 'ring-cyan-500/30',
 }
 
 export function StatusBadge({ status }: { status: string }) {
   const normalized = (status || 'unknown').toLowerCase()
+
   return (
-    <Badge className={statusClass[normalized] ?? 'bg-gray-200 text-gray-700'}>
+    <Badge
+      variant={statusVariant[normalized] ?? 'default'}
+      className={`capitalize ring-1 ring-inset ${statusTone[normalized] ?? 'ring-zinc-500/20'}`}
+    >
       {normalized}
     </Badge>
   )
