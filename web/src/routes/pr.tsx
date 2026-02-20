@@ -86,7 +86,7 @@ function PRRunRow({ run }: { run: RunRecord }) {
     <Link
       to="/run"
       search={{ run: run.run_id }}
-      className="block rounded-lg border border-gray-200/80 bg-gray-50/90 p-3 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+      className="block rounded-lg border border-gray-200/80 bg-gray-50/90 p-3 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800/60"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>

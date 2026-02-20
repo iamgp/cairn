@@ -17,7 +17,6 @@ import {
   runStatus,
   useHistoryRuns,
   useRunOptions,
-  type RunRecord,
 } from '../lib/history'
 
 export const Route = createFileRoute('/')({ component: OverviewPage })
@@ -39,7 +38,7 @@ function OverviewPage() {
   if (loading) return <InfoState tone="neutral">Loading history...</InfoState>
   if (error) return <InfoState tone="danger">Failed to load history: {error}</InfoState>
 
-  const recent = filtered.slice(0, 18)
+  const rows = filtered.slice(0, 120)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -67,53 +66,47 @@ function OverviewPage() {
         />
 
         <ReportSection title="Recent Runs" description="Ordered by latest timestamp and styled for quick triage.">
-          {recent.length === 0 ? (
+          {rows.length === 0 ? (
             <ReportEmptyState title="No runs match the active filters." />
           ) : (
-            <div className="space-y-2">
-              {recent.map((run) => (
-                <RunTimelineRow key={`${run.run_id}-${run.timestamp}`} run={run} />
-              ))}
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400">
+                    <th className="px-4 py-3">Run</th>
+                    <th className="px-4 py-3">Branch</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Checks</th>
+                    <th className="px-4 py-3">Duration</th>
+                    <th className="px-4 py-3">Last Active</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {rows.map((run) => (
+                    <tr
+                      key={`${run.run_id}-${run.timestamp}`}
+                      className="text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800/50"
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                        <Link to="/run" search={{ run: run.run_id }} className="hover:underline">
+                          {run.run_id}
+                        </Link>
+                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{run.pr != null ? `PR #${run.pr}` : 'No PR'}</div>
+                      </td>
+                      <td className="px-4 py-3">{run.branch || '-'}</td>
+                      <td className="px-4 py-3"><StatusBadge status={runStatus(run)} /></td>
+                      <td className="px-4 py-3">{run.checks?.length ?? 0}</td>
+                      <td className="px-4 py-3">{runDuration(run).toFixed(1)}s</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{formatDateTime(run.timestamp)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </ReportSection>
       </ReportShell>
     </div>
-  )
-}
-
-function RunTimelineRow({ run }: { run: RunRecord }) {
-  const status = runStatus(run)
-
-  return (
-    <Link
-      to="/run"
-      search={{ run: run.run_id }}
-      className="block rounded-lg border border-gray-200/80 bg-gray-50/90 p-3 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{run.run_id}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatDateTime(run.timestamp)}</p>
-        </div>
-        <StatusBadge status={status} />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-        <InfoPill label={`Branch ${run.branch || '-'}`} />
-        <InfoPill label={run.pr != null ? `PR #${run.pr}` : 'No PR'} />
-        <InfoPill label={`${run.checks?.length ?? 0} checks`} />
-        <InfoPill label={`${runDuration(run).toFixed(1)}s`} />
-      </div>
-    </Link>
-  )
-}
-
-function InfoPill({ label }: { label: string }) {
-  return (
-    <span className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300">
-      {label}
-    </span>
   )
 }
 
