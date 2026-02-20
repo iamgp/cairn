@@ -38,3 +38,4 @@
 
 ## User Preferences
 - Remove table-heavy report presentation; prefer Helm-style cards/timelines/section blocks.
+- Commit and push after every completed task.
