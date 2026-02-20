@@ -24,17 +24,17 @@ export function ReportShell({
     <section className={cn('space-y-5', className)}>
       <header
         className={cn(
-          'rounded-xl border border-zinc-200/80 bg-white/95 p-4 shadow-sm shadow-zinc-950/5 dark:border-zinc-800 dark:bg-zinc-900/90 dark:shadow-black/10 sm:p-5',
+          'rounded-xl border border-gray-200/80 bg-white/95 p-4 shadow-sm shadow-gray-950/5 dark:border-gray-800 dark:bg-gray-900/90 dark:shadow-black/10 sm:p-5',
           headerClassName,
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-lg">
+            <h1 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-lg">
               {title}
             </h1>
             {description ? (
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{description}</p>
             ) : null}
           </div>
           {actions ? <div className="flex items-center gap-2">{actions}</div> : null}

@@ -24,15 +24,15 @@ export function ReportMetricCard({
     <Card className={className}>
       <CardHeader className="pb-0">
         <div className="flex w-full items-center justify-between gap-3">
-          <CardTitle className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <CardTitle className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {label}
           </CardTitle>
           {trend ? <Badge variant={trendVariant}>{trend}</Badge> : null}
         </div>
       </CardHeader>
       <CardContent className="pt-3">
-        <p className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{value}</p>
-        {hint ? <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{hint}</p> : null}
+        <p className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{value}</p>
+        {hint ? <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{hint}</p> : null}
       </CardContent>
     </Card>
   )

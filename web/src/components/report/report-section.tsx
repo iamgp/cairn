@@ -26,7 +26,7 @@ export function ReportSection({
           <div>
             <CardTitle>{title}</CardTitle>
             {description ? (
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{description}</p>
             ) : null}
           </div>
           {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
