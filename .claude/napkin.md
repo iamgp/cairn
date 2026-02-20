@@ -27,3 +27,6 @@
 | Date | Source | What Went Wrong | What To Do Instead |
 |------|--------|----------------|-------------------|
 | 2026-02-20 | self | Deleted `internal/cli/report_test.go` without preserving shared `assertContains` helper used by other tests | Move shared helpers into a dedicated `*_test.go` helper file before deleting tests |
+
+## User Preferences
+- When asked for Helm parity, match the page shell/setup exactly (mobile/topbar/sidebar/theme behavior), then change only content labels/routes.
