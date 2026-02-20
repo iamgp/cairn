@@ -13,6 +13,11 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,3 +62,22 @@ jobs:
       - uses: ./
         with:
           ingest-file: demo-artifacts/run-record.json
+
+      - name: Checkout gh-pages for deployment
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-public
+          fetch-depth: 0
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: gh-pages-public
+
+      - name: Deploy Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
