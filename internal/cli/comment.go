@@ -14,9 +14,11 @@ import (
 var errCommentNoInput = errors.New("comment requires an input path")
 
 type commentOptions struct {
-	inputPath string
-	outPath   string
-	reportURL string
+	inputPath      string
+	outPath        string
+	reportURL      string
+	pagesDir       string
+	baselineBranch string
 }
 
 func newCommentCommand() *cobra.Command {
@@ -42,7 +44,15 @@ func newCommentCommand() *cobra.Command {
 				return fmt.Errorf("parse run record JSON: %w", err)
 			}
 
-			comment := renderPRComment(run, opts.reportURL)
+			var baseline *Run
+			if opts.pagesDir != "" {
+				baseline, err = loadBaselineRun(opts.pagesDir, opts.baselineBranch)
+				if err != nil {
+					return err
+				}
+			}
+
+			comment := renderPRComment(run, opts.reportURL, baseline)
 			if opts.outPath == "" {
 				_, err = fmt.Print(comment)
 				return err
@@ -61,41 +71,52 @@ func newCommentCommand() *cobra.Command {
 }
 
 func parseCommentCommandArgs(args []string) (commentOptions, error) {
-	opts := commentOptions{}
+	opts := commentOptions{
+		baselineBranch: "main",
+	}
 	var positional []string
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 
-		if strings.HasPrefix(arg, "--out=") {
+		switch {
+		case strings.HasPrefix(arg, "--out="):
 			opts.outPath = strings.TrimPrefix(arg, "--out=")
-			continue
-		}
-		if arg == "--out" {
+		case arg == "--out":
 			if i+1 >= len(args) {
 				return commentOptions{}, fmt.Errorf("missing value for --out")
 			}
 			i++
 			opts.outPath = args[i]
-			continue
-		}
-		if strings.HasPrefix(arg, "--report-url=") {
+		case strings.HasPrefix(arg, "--report-url="):
 			opts.reportURL = strings.TrimPrefix(arg, "--report-url=")
-			continue
-		}
-		if arg == "--report-url" {
+		case arg == "--report-url":
 			if i+1 >= len(args) {
 				return commentOptions{}, fmt.Errorf("missing value for --report-url")
 			}
 			i++
 			opts.reportURL = args[i]
-			continue
-		}
-		if strings.HasPrefix(arg, "--") {
+		case strings.HasPrefix(arg, "--pages-dir="):
+			opts.pagesDir = strings.TrimPrefix(arg, "--pages-dir=")
+		case arg == "--pages-dir":
+			if i+1 >= len(args) {
+				return commentOptions{}, fmt.Errorf("missing value for --pages-dir")
+			}
+			i++
+			opts.pagesDir = args[i]
+		case strings.HasPrefix(arg, "--baseline-branch="):
+			opts.baselineBranch = strings.TrimPrefix(arg, "--baseline-branch=")
+		case arg == "--baseline-branch":
+			if i+1 >= len(args) {
+				return commentOptions{}, fmt.Errorf("missing value for --baseline-branch")
+			}
+			i++
+			opts.baselineBranch = args[i]
+		case strings.HasPrefix(arg, "--"):
 			return commentOptions{}, fmt.Errorf("unknown flag %q", arg)
+		default:
+			positional = append(positional, arg)
 		}
-
-		positional = append(positional, arg)
 	}
 
 	if len(positional) == 0 {
@@ -109,7 +130,15 @@ func parseCommentCommandArgs(args []string) (commentOptions, error) {
 	return opts, nil
 }
 
-func renderPRComment(run Run, reportURL string) string {
+func loadBaselineRun(pagesDir, branch string) (*Run, error) {
+	runs, err := loadHistoryRuns(pagesDir)
+	if err != nil {
+		return nil, fmt.Errorf("load baseline: %w", err)
+	}
+	return findBaselineRun(runs, branch), nil
+}
+
+func renderPRComment(run Run, reportURL string, baseline *Run) string {
 	shortSHA := strings.TrimSpace(run.SHA)
 	if shortSHA == "" {
 		full := strings.TrimSpace(run.SHAFull)
@@ -142,16 +171,65 @@ func renderPRComment(run Run, reportURL string) string {
 		return b.String()
 	}
 
-	b.WriteString("| Checker | Status | Items |\n")
-	b.WriteString("| --- | --- | ---: |\n")
+	b.WriteString("| Checker | Status | ✅ Passed | ❌ Failed | Items |\n")
+	b.WriteString("| --- | --- | ---: | ---: | ---: |\n")
 	for _, check := range run.Checks {
+		var passCount, failCount int
+		for _, item := range check.Items {
+			switch item.Status {
+			case "passed":
+				passCount++
+			case "failed", "error":
+				failCount++
+			}
+		}
 		b.WriteString("| ")
 		b.WriteString(strings.TrimSpace(check.Tool))
 		b.WriteString(" | ")
 		b.WriteString(strings.TrimSpace(check.Status))
 		b.WriteString(" | ")
+		b.WriteString(fmt.Sprintf("%d", passCount))
+		b.WriteString(" | ")
+		b.WriteString(fmt.Sprintf("%d", failCount))
+		b.WriteString(" | ")
 		b.WriteString(fmt.Sprintf("%d", len(check.Items)))
 		b.WriteString(" |\n")
+	}
+
+	if baseline != nil {
+		newFailures, fixed := diffItems(run, *baseline)
+
+		if len(newFailures) > 0 {
+			b.WriteString("\n#### 🆕 New Failures (vs `")
+			b.WriteString(baseline.Branch)
+			b.WriteString("`)\n\n")
+			b.WriteString("| Checker | Test | Status |\n")
+			b.WriteString("| --- | --- | --- |\n")
+			for _, nf := range newFailures {
+				b.WriteString("| ")
+				b.WriteString(nf.Checker)
+				b.WriteString(" | ")
+				b.WriteString(nf.ItemID)
+				b.WriteString(" | ")
+				b.WriteString(nf.Status)
+				b.WriteString(" |\n")
+			}
+		}
+
+		if len(fixed) > 0 {
+			b.WriteString("\n#### ✅ Fixed (vs `")
+			b.WriteString(baseline.Branch)
+			b.WriteString("`)\n\n")
+			b.WriteString("| Checker | Test |\n")
+			b.WriteString("| --- | --- |\n")
+			for _, f := range fixed {
+				b.WriteString("| ")
+				b.WriteString(f.Checker)
+				b.WriteString(" | ")
+				b.WriteString(f.ItemID)
+				b.WriteString(" |\n")
+			}
+		}
 	}
 
 	return b.String()
