@@ -23,11 +23,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -48,26 +43,8 @@ jobs:
           PYTHONPATH=demo/uv-demo/src \
             uv run --project demo/uv-demo ruff check demo/uv-demo/src --output-format json --output-file demo-artifacts/ruff-results.json
 
-      - name: Build Cairn run record
-        run: |
-          mkdir -p bin
-          go build -o ./bin/cairn ./
-          ./bin/cairn collect \
-            --config demo/uv-demo/cairn.toml \
-            --out demo-artifacts/run-record.json \
-            --run-id "${{ github.run_id }}-py312" \
-            --sha-full "${{ github.sha }}" \
-            --branch "${{ github.ref_name }}" \
-            --matrix "python=3.12" \
-            --requirement-id "REQ-PY-TESTS-001" \
-            --artifact "pytest=demo-artifacts/pytest-junit.xml" \
-            --artifact "ruff=demo-artifacts/ruff-results.json" \
-            --coverage "overall:line=924/1000" \
-            --tool-version "python=3.12" \
-            --tool-version "ruff=latest" \
-            --dependency-hash "uv.lock=${{ hashFiles('demo/uv-demo/uv.lock') }}"
-
       - uses: ./
         with:
-          ingest-file: demo-artifacts/run-record.json
-          cairn-path: ./bin/cairn
+          collect-config: demo/uv-demo/cairn.toml
+          collect-args: >-
+            --matrix python=3.12

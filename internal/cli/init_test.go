@@ -43,12 +43,6 @@ func TestInitCommandScaffoldsDefaults(t *testing.T) {
 	if string(readme) != defaultReadme {
 		t.Fatalf("unexpected README.md contents:\n%s", string(readme))
 	}
-	if !strings.Contains(string(readme), "--tool-version") {
-		t.Fatalf("expected README.md to include --tool-version example")
-	}
-	if !strings.Contains(string(readme), "--dependency-hash") {
-		t.Fatalf("expected README.md to include --dependency-hash example")
-	}
 	if !strings.Contains(string(readme), "--requirement-id") {
 		t.Fatalf("expected README.md to include --requirement-id example")
 	}
@@ -77,20 +71,11 @@ func TestInitCommandScaffoldsDefaults(t *testing.T) {
 	if string(workflow) != defaultCairnWorkflow {
 		t.Fatalf("unexpected workflow contents:\n%s", string(workflow))
 	}
-	if !strings.Contains(string(workflow), "--tool-version") {
-		t.Fatalf("expected workflow to include --tool-version example")
+	if !strings.Contains(string(workflow), "collect-config: cairn.toml") {
+		t.Fatalf("expected workflow to use collect-config")
 	}
-	if !strings.Contains(string(workflow), "--dependency-hash") {
-		t.Fatalf("expected workflow to include --dependency-hash example")
-	}
-	if !strings.Contains(string(workflow), "--requirement-id") {
-		t.Fatalf("expected workflow to include --requirement-id example")
-	}
-	if !strings.Contains(string(workflow), "--artifact") {
-		t.Fatalf("expected workflow to include --artifact example")
-	}
-	if !strings.Contains(string(workflow), "--coverage") {
-		t.Fatalf("expected workflow to include --coverage example")
+	if !strings.Contains(string(workflow), "--matrix python=3.12") {
+		t.Fatalf("expected workflow to include matrix collect args")
 	}
 }
 

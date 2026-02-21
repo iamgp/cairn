@@ -48,11 +48,9 @@ Cairn keeps a long-running quality history for your repository and publishes a r
 
 2. Adjust checker inputs in ` + "`cairn.toml`" + ` to match your CI artifact names.
 3. Commit the scaffolded files.
-4. Run your CI workflow. Use ` + "`cairn collect`" + ` to build a run record from checker outputs.
-   Phase-2 evidence can be attached with ` + "`--requirement-id`" + `, ` + "`--artifact`" + `, and ` + "`--coverage`" + `.
-   Keep regulated provenance via ` + "`--tool-version`" + ` and ` + "`--dependency-hash`" + `.
-   Coverage reports can be ingested with ` + "`--coverage-file`" + ` (LCOV, Cobertura XML, JaCoCo XML).
-5. Feed that run record into the Cairn GitHub Action to append history and publish the report.
+4. Run your CI workflow and invoke the Cairn GitHub Action.
+   The action can run ` + "`cairn collect`" + ` internally with ` + "`collect-config`" + ` and optional ` + "`collect-args`" + `.
+5. Keep regulated provenance/evidence in ` + "`collect-args`" + ` when needed (` + "`--requirement-id`" + `, ` + "`--coverage`" + `, ` + "`--coverage-file`" + `, ` + "`--artifact`" + `). Tool versions and common lockfile hashes are auto-detected by default.
 
 ## cairn.toml Reference
 
@@ -97,55 +95,25 @@ Copy and adapt this workflow for your repository:
     jobs:
       checks:
         runs-on: ubuntu-latest
-        strategy:
-          fail-fast: false
-          matrix:
-            python-version: ["3.11", "3.12"]
+        permissions:
+          contents: write
+          pages: write
+          id-token: write
+          pull-requests: write
         steps:
           - uses: actions/checkout@v4
           - uses: actions/setup-python@v5
             with:
-              python-version: ${{ matrix.python-version }}
+              python-version: "3.12"
           - run: pip install -e ".[dev]"
-          - run: go install github.com/iamgp/cairn@latest
-          - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
+          - run: pytest --junitxml pytest.xml
           - run: ruff check --output-format json --output-file ruff-results.json
           - run: ty check --output json > ty-results.json
-          - name: Build run record JSON
-            run: |
-              cairn collect \
-                --config cairn.toml \
-                --out run-record.json \
-                --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
-                --sha-full "${{ github.sha }}" \
-                --branch "${{ github.ref_name }}" \
-                --matrix "python=${{ matrix.python-version }}" \
-                --requirement-id "REQ-PY-TESTS-001" \
-                --artifact "pytest=pytest-${{ matrix.python-version }}.xml" \
-                --artifact "ruff=ruff-results.json" \
-                --coverage "overall:line=924/1000" \
-                --tool-version "python=${{ matrix.python-version }}" \
-                --tool-version "ruff=latest" \
-                --dependency-hash "requirements.txt=${{ hashFiles('requirements*.txt') }}"
-          - uses: actions/upload-artifact@v4
-            with:
-              name: cairn-run-${{ matrix.python-version }}
-              path: run-record.json
-
-      cairn:
-        needs: checks
-        runs-on: ubuntu-latest
-        permissions:
-          contents: write
-          pull-requests: write
-        steps:
-          - uses: actions/checkout@v4
-          - uses: actions/download-artifact@v4
-            with:
-              path: cairn-inputs
           - uses: iamgp/cairn@v0.1.0
             with:
-              ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
+              collect-config: cairn.toml
+              collect-args: >-
+                --matrix python=3.12
 `
 
 const defaultAdaptersDoc = `# Cairn Adapters
@@ -229,55 +197,25 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: go install github.com/iamgp/cairn@latest
-      - run: pytest --junitxml "pytest-${{ matrix.python-version }}.xml"
+      - run: pytest --junitxml pytest.xml
       - run: ruff check --output-format json --output-file ruff-results.json
       - run: ty check --output json > ty-results.json
-      - name: Build run record JSON
-        run: |
-          cairn collect \
-            --config cairn.toml \
-            --out run-record.json \
-            --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
-            --sha-full "${{ github.sha }}" \
-            --branch "${{ github.ref_name }}" \
-            --matrix "python=${{ matrix.python-version }}" \
-            --requirement-id "REQ-PY-TESTS-001" \
-            --artifact "pytest=pytest-${{ matrix.python-version }}.xml" \
-            --artifact "ruff=ruff-results.json" \
-            --coverage "overall:line=924/1000" \
-            --tool-version "python=${{ matrix.python-version }}" \
-            --tool-version "ruff=latest" \
-            --dependency-hash "requirements.txt=${{ hashFiles('requirements*.txt') }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cairn-run-${{ matrix.python-version }}
-          path: run-record.json
-
-  cairn:
-    needs: checks
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: cairn-inputs
       - uses: iamgp/cairn@v0.1.0
         with:
-          ingest-file: cairn-inputs/cairn-run-3.11/run-record.json
+          collect-config: cairn.toml
+          collect-args: >-
+            --matrix python=3.12
 `
 
 func newInitCommand() *cobra.Command {
