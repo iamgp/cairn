@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"cairn/internal/cli"
+	"github.com/iamgp/cairn/internal/cli"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module cairn
+module github.com/iamgp/cairn
 
 go 1.25
 
