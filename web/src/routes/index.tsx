@@ -1,18 +1,15 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DataTable } from '../components/data-table'
 import { runTableColumns } from '../components/run-table-columns'
 import {
   defaultFilters,
   filterRuns,
-  runDuration,
   runStatus,
   useHistoryRuns,
   useRunOptions,
   type RunFilters,
-  type RunRecord,
 } from '../lib/history'
-import { relativeTime } from '../lib/utils'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search) => ({
@@ -37,11 +34,6 @@ function OverviewPage() {
     const skipped = filtered.filter((run) => runStatus(run) === 'skipped').length
     return { total, passed, failed, skipped }
   }, [filtered])
-
-  const needsAttention = useMemo(
-    () => filtered.filter((run) => ['failed', 'error'].includes(runStatus(run))).slice(0, 6),
-    [filtered],
-  )
 
   const hasActiveFilters = filters.query !== '' || filters.status !== 'any' || filters.checker !== 'any' || filters.branch !== 'any' || filters.pr !== 'any'
 
@@ -87,20 +79,6 @@ function OverviewPage() {
         <MetricCard label="Failed / Error" value={summary.failed} tone="rose" />
         <MetricCard label="Skipped" value={summary.skipped} tone="amber" />
       </div>
-
-      {/* Needs Attention */}
-      {needsAttention.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
-            <span className="text-amber-500">⚠</span> Needs Attention ({needsAttention.length} runs with failures)
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {needsAttention.map((run) => (
-              <NeedsAttentionCard key={`${run.run_id}-${run.timestamp}`} run={run} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -149,37 +127,6 @@ function OverviewPage() {
         onRowClick={(run) => navigate({ to: '/run', search: { run: run.run_id } })}
       />
     </div>
-  )
-}
-
-function NeedsAttentionCard({ run }: { run: RunRecord }) {
-  const status = runStatus(run)
-  const failedChecks = (run.checks || []).filter((c) => ['failed', 'error'].includes(c.status?.toLowerCase()))
-
-  return (
-    <Link
-      to="/run"
-      search={{ run: run.run_id }}
-      className="block border border-rose-200 dark:border-rose-800/50 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 p-4 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-sm transition-all"
-    >
-      <div className="flex items-start justify-between mb-1.5">
-        <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{run.run_id}</span>
-        <span className="text-xs px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-400 rounded-full flex-shrink-0 ml-2">
-          {status}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {failedChecks.map((check) => (
-          <span key={check.tool} className="text-[10px] px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 rounded">
-            {check.tool}: {check.status}
-          </span>
-        ))}
-      </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        {run.branch || 'No branch'} · {run.checks?.length ?? 0} checks
-      </p>
-      <p className="text-xs text-gray-400 dark:text-gray-500">{relativeTime(run.timestamp)}</p>
-    </Link>
   )
 }
 
