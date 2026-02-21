@@ -335,31 +335,9 @@ runs:
         max_days=0
         max_runs=0
         if [ -n "${collect_config}" ] && [ -f "${collect_config}" ] && command -v python3 >/dev/null 2>&1; then
-          readarray -t history_limits < <(CAIRN_CONFIG_PATH="${collect_config}" python3 - <<'PY'
-import os
-import tomllib
-
-max_days = 0
-max_runs = 0
-
-path = os.environ.get("CAIRN_CONFIG_PATH", "")
-if path:
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    history = data.get("history") or {}
-    try:
-        max_days = int(history.get("max_days", 0) or 0)
-    except (TypeError, ValueError):
-        max_days = 0
-    try:
-        max_runs = int(history.get("max_runs", 0) or 0)
-    except (TypeError, ValueError):
-        max_runs = 0
-
-print(max_days if max_days > 0 else 0)
-print(max_runs if max_runs > 0 else 0)
-PY
-)
+          readarray -t history_limits < <(
+            CAIRN_CONFIG_PATH="${collect_config}" python3 -c 'import os,tomllib; path=os.environ.get("CAIRN_CONFIG_PATH",""); data=tomllib.load(open(path,"rb")) if path else {}; history=data.get("history") or {}; to_int=lambda value: int(value) if str(value).lstrip("+-").isdigit() else 0; max_days=to_int(history.get("max_days", 0) or 0); max_runs=to_int(history.get("max_runs", 0) or 0); print(max_days if max_days > 0 else 0); print(max_runs if max_runs > 0 else 0)'
+          )
 
           if [ "${#history_limits[@]}" -ge 2 ]; then
             max_days="${history_limits[0]}"
@@ -470,31 +448,9 @@ PY
         show_coverage="true"
         show_per_matrix="true"
         if [ -n "${collect_config}" ] && [ -f "${collect_config}" ] && command -v python3 >/dev/null 2>&1; then
-          readarray -t pr_comment_settings < <(CAIRN_CONFIG_PATH="${collect_config}" python3 - <<'PY'
-import os
-import tomllib
-
-enabled = "true"
-show_coverage = "true"
-show_per_matrix = "true"
-
-path = os.environ.get("CAIRN_CONFIG_PATH", "")
-if path:
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    section = data.get("pr_comment") or {}
-    if "enabled" in section:
-        enabled = "true" if bool(section.get("enabled")) else "false"
-    if "show_coverage" in section:
-        show_coverage = "true" if bool(section.get("show_coverage")) else "false"
-    if "show_per_matrix" in section:
-        show_per_matrix = "true" if bool(section.get("show_per_matrix")) else "false"
-
-print(enabled)
-print(show_coverage)
-print(show_per_matrix)
-PY
-)
+          readarray -t pr_comment_settings < <(
+            CAIRN_CONFIG_PATH="${collect_config}" python3 -c 'import os,tomllib; path=os.environ.get("CAIRN_CONFIG_PATH",""); data=tomllib.load(open(path,"rb")) if path else {}; section=data.get("pr_comment") or {}; value=lambda key: section[key] if key in section else True; to_bool_str=lambda raw: "true" if bool(raw) else "false"; print(to_bool_str(value("enabled"))); print(to_bool_str(value("show_coverage"))); print(to_bool_str(value("show_per_matrix")))'
+          )
           if [ "${#pr_comment_settings[@]}" -ge 3 ]; then
             comment_enabled="${pr_comment_settings[0]}"
             show_coverage="${pr_comment_settings[1]}"
