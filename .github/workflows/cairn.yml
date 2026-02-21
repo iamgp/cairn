@@ -66,8 +66,15 @@ jobs:
             --dependency-hash "uv.lock=${{ hashFiles('demo/uv-demo/uv.lock') }}"
 
       - uses: ./
+        if: github.event_name != 'pull_request'
         with:
           ingest-file: demo-artifacts/run-record.json
+
+      - uses: ./
+        if: github.event_name == 'pull_request'
+        with:
+          ingest-file: demo-artifacts/run-record.json
+          pages-subdir: previews/pr-${{ github.event.pull_request.number }}
 
   deploy-preview:
     if: github.event_name == 'pull_request'
@@ -79,7 +86,7 @@ jobs:
       contents: read
     environment:
       name: github-pages-preview
-      url: ${{ steps.deploy-pages.outputs.page_url }}
+      url: ${{ steps.deploy-pages.outputs.page_url }}previews/pr-${{ github.event.pull_request.number }}/
     steps:
       - name: Checkout gh-pages for deployment
         uses: actions/checkout@v4

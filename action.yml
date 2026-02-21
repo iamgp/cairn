@@ -17,6 +17,10 @@ inputs:
     description: "Commit message for gh-pages updates"
     required: false
     default: "cairn: ingest run record"
+  pages-subdir:
+    description: "Optional subdirectory under gh-pages to publish into (for example: previews/pr-123)"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -122,7 +126,18 @@ runs:
 
     - name: Ingest run record
       shell: bash
-      run: cairn ingest "${{ inputs.ingest-file }}" --pages-dir "${{ github.workspace }}/gh-pages"
+      run: |
+        set -euo pipefail
+        base_pages_dir="${{ github.workspace }}/gh-pages"
+        pages_subdir="${{ inputs.pages-subdir }}"
+        pages_subdir="${pages_subdir#/}"
+        pages_subdir="${pages_subdir%/}"
+        publish_dir="${base_pages_dir}"
+        if [ -n "${pages_subdir}" ]; then
+          publish_dir="${base_pages_dir}/${pages_subdir}"
+        fi
+        mkdir -p "${publish_dir}"
+        cairn ingest "${{ inputs.ingest-file }}" --pages-dir "${publish_dir}"
 
     - name: Setup Node for web report
       uses: actions/setup-node@v4
@@ -135,7 +150,15 @@ runs:
         set -euo pipefail
 
         action_root="${{ github.action_path }}"
-        pages_dir="${{ github.workspace }}/gh-pages"
+        base_pages_dir="${{ github.workspace }}/gh-pages"
+        pages_subdir="${{ inputs.pages-subdir }}"
+        pages_subdir="${pages_subdir#/}"
+        pages_subdir="${pages_subdir%/}"
+        pages_dir="${base_pages_dir}"
+        if [ -n "${pages_subdir}" ]; then
+          pages_dir="${base_pages_dir}/${pages_subdir}"
+        fi
+        mkdir -p "${pages_dir}"
 
         if [ -f "${action_root}/web/package.json" ]; then
           cd "${action_root}/web"
