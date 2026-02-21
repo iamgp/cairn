@@ -5,3 +5,5 @@ web/node_modules/
 web/.output/
 web/.tanstack/
 web/.nitro/
+.claude/napkin
+.claude/napkin.md
