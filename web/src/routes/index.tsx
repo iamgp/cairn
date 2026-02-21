@@ -2,6 +2,7 @@ import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo, useState, type ReactNode } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { DataTable } from '../components/data-table'
+import { RunScopeTabs } from '../components/run-scope-tabs'
 import {
   defaultFilters,
   filterRuns,
@@ -95,8 +96,9 @@ function OverviewPage() {
   const { runs, loading, error } = useHistoryRuns()
   const navigate = useNavigate()
   const [filters, setFilters] = useState(defaultFilters)
-  const options = useRunOptions(runs)
-  const filtered = useMemo(() => filterRuns(runs, filters), [runs, filters])
+  const mainRuns = useMemo(() => runs.filter((run) => run.pr == null), [runs])
+  const options = useRunOptions(mainRuns)
+  const filtered = useMemo(() => filterRuns(mainRuns, filters), [mainRuns, filters])
 
   const summary = useMemo(() => {
     const total = filtered.length
@@ -125,7 +127,7 @@ function OverviewPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Overview</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Main Branch</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{summary.total} runs found</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -140,6 +142,7 @@ function OverviewPage() {
           </span>
         </div>
       </div>
+      <RunScopeTabs className="mb-6" />
 
       {/* Metric Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

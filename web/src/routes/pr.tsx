@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState, type ReactNode } from 'react'
 import { StatusBadge } from '../components/status-badge'
+import { RunScopeTabs } from '../components/run-scope-tabs'
 import { defaultFilters, filterRuns, runDuration, runStatus, useHistoryRuns, useRunOptions, type RunFilters, type RunRecord } from '../lib/history'
 import { relativeTime } from '../lib/utils'
 
@@ -9,8 +10,9 @@ export const Route = createFileRoute('/pr')({ component: PRPage })
 function PRPage() {
   const { runs, loading, error } = useHistoryRuns()
   const [filters, setFilters] = useState(defaultFilters)
-  const options = useRunOptions(runs)
-  const filtered = useMemo(() => filterRuns(runs, filters), [runs, filters])
+  const prRuns = useMemo(() => runs.filter((run) => run.pr != null), [runs])
+  const options = useRunOptions(prRuns)
+  const filtered = useMemo(() => filterRuns(prRuns, filters), [prRuns, filters])
 
   const groups = useMemo(() => {
     const map = new Map<number, RunRecord[]>()
@@ -47,7 +49,7 @@ function PRPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pull Requests</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {groups.length} PR{groups.length !== 1 ? 's' : ''} with {filtered.filter((r) => r.pr != null).length} runs
+            {groups.length} PR{groups.length !== 1 ? 's' : ''} with {filtered.length} runs
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -59,6 +61,7 @@ function PRPage() {
           </span>
         </div>
       </div>
+      <RunScopeTabs className="mb-6" />
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
