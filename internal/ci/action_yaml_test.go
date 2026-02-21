@@ -40,7 +40,6 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"cairn ingest \"${{ steps.prepare-run-record.outputs.path }}\" --pages-dir \"${publish_dir}\"",
 		"uses: actions/setup-node@v4",
 		"node-version: \"24\"",
-		"cache-dependency-path:",
 		"npm ci --no-audit --no-fund",
 		"npm run build:pages",
 		"pages_subdir=\"${{ inputs.pages-subdir }}\"",
