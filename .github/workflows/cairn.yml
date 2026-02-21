@@ -69,11 +69,13 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           ingest-file: demo-artifacts/run-record.json
+          cairn-path: ./bin/cairn
 
       - uses: ./
         if: github.event_name == 'pull_request'
         with:
           ingest-file: demo-artifacts/run-record.json
+          cairn-path: ./bin/cairn
           pages-subdir: previews/pr-${{ github.event.pull_request.number }}
 
   deploy-preview:

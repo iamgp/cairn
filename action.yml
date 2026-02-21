@@ -13,6 +13,10 @@ inputs:
     description: "Release tag to download (use 'latest' for the newest release)"
     required: false
     default: "latest"
+  cairn-path:
+    description: "Optional path to a prebuilt cairn binary to use instead of downloading a release asset"
+    required: false
+    default: ""
   commit-message:
     description: "Commit message for gh-pages updates"
     required: false
@@ -42,6 +46,7 @@ runs:
         fetch-depth: 0
 
     - name: Download cairn binary
+      if: ${{ inputs.cairn-path == '' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -122,6 +127,22 @@ runs:
         cp "${cairn_path}" "${install_dir}/cairn${extension}"
         chmod +x "${install_dir}/cairn${extension}"
 
+        echo "${install_dir}" >> "${GITHUB_PATH}"
+
+    - name: Use provided cairn binary
+      if: ${{ inputs.cairn-path != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cairn_path="${{ inputs.cairn-path }}"
+        if [ ! -f "${cairn_path}" ]; then
+          echo "Provided cairn-path does not exist: ${cairn_path}" >&2
+          exit 1
+        fi
+        install_dir="${RUNNER_TEMP}/cairn-install"
+        mkdir -p "${install_dir}"
+        cp "${cairn_path}" "${install_dir}/cairn"
+        chmod +x "${install_dir}/cairn"
         echo "${install_dir}" >> "${GITHUB_PATH}"
 
     - name: Ingest run record
