@@ -55,8 +55,8 @@ Coverage can also be ingested from reports with `--coverage-file` (LCOV, Cobertu
 `cairn.toml` supports:
 
 - `[project]` metadata
-- `[history]` pruning policy
-- `[pr_comment]` PR summary rendering toggles
+- `[history]` retention policy (`max_days`, `max_runs`) consumed by `cairn prune` and applied automatically by the composite action after ingest
+- `[pr_comment]` PR summary toggles (`enabled`, `show_coverage`, `show_per_matrix`) used by the composite action comment step
 - `[[checkers]]` adapter configuration
 
 Adapter details and mapping examples are in `docs/adapters.md`.

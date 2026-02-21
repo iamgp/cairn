@@ -331,6 +331,31 @@ runs:
         mkdir -p "${publish_dir}"
         cairn ingest "${{ steps.prepare-run-record.outputs.path }}" --pages-dir "${publish_dir}"
 
+        collect_config="${{ inputs.collect-config }}"
+        max_days=0
+        max_runs=0
+        if [ -n "${collect_config}" ] && [ -f "${collect_config}" ] && command -v python3 >/dev/null 2>&1; then
+          readarray -t history_limits < <(
+            CAIRN_CONFIG_PATH="${collect_config}" python3 -c 'import os,tomllib; path=os.environ.get("CAIRN_CONFIG_PATH",""); data=tomllib.load(open(path,"rb")) if path else {}; history=data.get("history") or {}; to_int=lambda value: int(value) if str(value).lstrip("+-").isdigit() else 0; max_days=to_int(history.get("max_days", 0) or 0); max_runs=to_int(history.get("max_runs", 0) or 0); print(max_days if max_days > 0 else 0); print(max_runs if max_runs > 0 else 0)'
+          )
+
+          if [ "${#history_limits[@]}" -ge 2 ]; then
+            max_days="${history_limits[0]}"
+            max_runs="${history_limits[1]}"
+          fi
+        fi
+
+        if [ "${max_days}" -gt 0 ] || [ "${max_runs}" -gt 0 ]; then
+          prune_args=(prune --pages-dir "${publish_dir}")
+          if [ "${max_days}" -gt 0 ]; then
+            prune_args+=(--max-days "${max_days}")
+          fi
+          if [ "${max_runs}" -gt 0 ]; then
+            prune_args+=(--max-runs "${max_runs}")
+          fi
+          cairn "${prune_args[@]}"
+        fi
+
     - name: Setup Node for web report
       uses: actions/setup-node@v4
       with:
@@ -354,7 +379,7 @@ runs:
 
         if [ -f "${action_root}/web/package.json" ]; then
           cd "${action_root}/web"
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run build:pages
           cp -R .output/public/. "${pages_dir}/"
         else
@@ -407,15 +432,61 @@ runs:
 
         run_record_path="${{ steps.prepare-run-record.outputs.path }}"
         run_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("run_id",""))' "${run_record_path}")"
-        report_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/#/run?run=${run_id}"
+        pages_subdir="${{ inputs.pages-subdir }}"
+        pages_subdir="${pages_subdir#/}"
+        pages_subdir="${pages_subdir%/}"
+        report_prefix=""
+        if [ -n "${pages_subdir}" ]; then
+          report_prefix="/${pages_subdir}"
+        fi
+        report_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}${report_prefix}/#/run?run=${run_id}"
+
+        collect_config="${{ inputs.collect-config }}"
+        comment_enabled="true"
+        show_coverage="true"
+        show_per_matrix="true"
+        if [ -n "${collect_config}" ] && [ -f "${collect_config}" ] && command -v python3 >/dev/null 2>&1; then
+          readarray -t pr_comment_settings < <(
+            CAIRN_CONFIG_PATH="${collect_config}" python3 -c 'import os,tomllib; path=os.environ.get("CAIRN_CONFIG_PATH",""); data=tomllib.load(open(path,"rb")) if path else {}; section=data.get("pr_comment") or {}; value=lambda key: section[key] if key in section else True; to_bool_str=lambda raw: "true" if bool(raw) else "false"; print(to_bool_str(value("enabled"))); print(to_bool_str(value("show_coverage"))); print(to_bool_str(value("show_per_matrix")))'
+          )
+          if [ "${#pr_comment_settings[@]}" -ge 3 ]; then
+            comment_enabled="${pr_comment_settings[0]}"
+            show_coverage="${pr_comment_settings[1]}"
+            show_per_matrix="${pr_comment_settings[2]}"
+          fi
+        fi
+
+        if [ "${comment_enabled}" != "true" ]; then
+          echo "Skipping PR comment because pr_comment.enabled=false."
+          echo "path=" >> "${GITHUB_OUTPUT}"
+          exit 0
+        fi
 
         comment_path="${RUNNER_TEMP}/cairn-pr-comment.md"
-        cairn comment "${run_record_path}" --out "${comment_path}" --report-url "${report_url}"
+        base_pages_dir="${{ github.workspace }}/gh-pages"
+        publish_dir="${base_pages_dir}"
+        if [ -n "${pages_subdir}" ]; then
+          publish_dir="${base_pages_dir}/${pages_subdir}"
+        fi
+
+        comment_args=(
+          comment
+          "${run_record_path}"
+          --out "${comment_path}"
+          --report-url "${report_url}"
+          --show-coverage="${show_coverage}"
+          --show-per-matrix="${show_per_matrix}"
+          --pages-dir "${publish_dir}"
+        )
+        if [ -n "${collect_config}" ] && [ -f "${collect_config}" ]; then
+          comment_args+=(--config "${collect_config}")
+        fi
+        cairn "${comment_args[@]}"
 
         echo "path=${comment_path}" >> "${GITHUB_OUTPUT}"
 
     - name: Upsert PR comment
-      if: ${{ inputs.post-pr-comment == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ inputs.post-pr-comment == 'true' && github.event_name == 'pull_request' && steps.render-pr-comment.outputs.path != '' }}
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.comment-token != '' && inputs.comment-token || github.token }}

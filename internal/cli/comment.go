@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,14 @@ type commentOptions struct {
 	reportURL      string
 	pagesDir       string
 	baselineBranch string
+	configPath     string
+	showCoverage   *bool
+	showPerMatrix  *bool
+}
+
+type commentRenderOptions struct {
+	showCoverage  bool
+	showPerMatrix bool
 }
 
 func newCommentCommand() *cobra.Command {
@@ -54,7 +63,17 @@ func newCommentCommand() *cobra.Command {
 				}
 			}
 
-			comment := renderPRComment(run, opts.reportURL, baseline)
+			var cfg *cairnConfig
+			if strings.TrimSpace(opts.configPath) != "" {
+				loaded, err := loadCairnConfig(opts.configPath)
+				if err != nil {
+					return err
+				}
+				cfg = &loaded
+			}
+
+			renderOpts := resolveCommentRenderOptions(opts, cfg)
+			comment := renderPRComment(run, opts.reportURL, baseline, renderOpts)
 			if opts.outPath == "" {
 				_, err = fmt.Print(comment)
 				return err
@@ -114,6 +133,34 @@ func parseCommentCommandArgs(args []string) (commentOptions, error) {
 			}
 			i++
 			opts.baselineBranch = args[i]
+		case strings.HasPrefix(arg, "--config="):
+			opts.configPath = strings.TrimPrefix(arg, "--config=")
+		case arg == "--config":
+			if i+1 >= len(args) {
+				return commentOptions{}, fmt.Errorf("missing value for --config")
+			}
+			i++
+			opts.configPath = args[i]
+		case strings.HasPrefix(arg, "--show-coverage="):
+			value := strings.TrimPrefix(arg, "--show-coverage=")
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return commentOptions{}, fmt.Errorf("invalid --show-coverage value %q", value)
+			}
+			opts.showCoverage = &parsed
+		case arg == "--show-coverage":
+			parsed := true
+			opts.showCoverage = &parsed
+		case strings.HasPrefix(arg, "--show-per-matrix="):
+			value := strings.TrimPrefix(arg, "--show-per-matrix=")
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return commentOptions{}, fmt.Errorf("invalid --show-per-matrix value %q", value)
+			}
+			opts.showPerMatrix = &parsed
+		case arg == "--show-per-matrix":
+			parsed := true
+			opts.showPerMatrix = &parsed
 		case strings.HasPrefix(arg, "--"):
 			return commentOptions{}, fmt.Errorf("unknown flag %q", arg)
 		default:
@@ -132,6 +179,24 @@ func parseCommentCommandArgs(args []string) (commentOptions, error) {
 	return opts, nil
 }
 
+func resolveCommentRenderOptions(opts commentOptions, cfg *cairnConfig) commentRenderOptions {
+	resolved := commentRenderOptions{
+		showCoverage:  true,
+		showPerMatrix: true,
+	}
+	if cfg != nil {
+		resolved.showCoverage = cfg.prCommentShowCoverage()
+		resolved.showPerMatrix = cfg.prCommentShowPerMatrix()
+	}
+	if opts.showCoverage != nil {
+		resolved.showCoverage = *opts.showCoverage
+	}
+	if opts.showPerMatrix != nil {
+		resolved.showPerMatrix = *opts.showPerMatrix
+	}
+	return resolved
+}
+
 func loadBaselineRun(pagesDir, branch string) (*Run, error) {
 	runs, err := loadHistoryRuns(pagesDir)
 	if err != nil {
@@ -140,7 +205,7 @@ func loadBaselineRun(pagesDir, branch string) (*Run, error) {
 	return findBaselineRun(runs, branch), nil
 }
 
-func renderPRComment(run Run, reportURL string, baseline *Run) string {
+func renderPRComment(run Run, reportURL string, baseline *Run, options commentRenderOptions) string {
 	shortSHA := strings.TrimSpace(run.SHA)
 	if shortSHA == "" {
 		full := strings.TrimSpace(run.SHAFull)
@@ -198,6 +263,23 @@ func renderPRComment(run Run, reportURL string, baseline *Run) string {
 		b.WriteString(" |\n")
 	}
 
+	if options.showPerMatrix && len(run.Matrix) > 0 {
+		keys := make([]string, 0, len(run.Matrix))
+		for key := range run.Matrix {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		b.WriteString("\n#### Matrix\n\n")
+		for _, key := range keys {
+			b.WriteString("- ")
+			b.WriteString(key)
+			b.WriteString(": `")
+			b.WriteString(run.Matrix[key])
+			b.WriteString("`\n")
+		}
+	}
+
 	if run.Metadata != nil {
 		if traceability := run.Metadata.Traceability; traceability != nil {
 			hasTraceability := len(traceability.RequirementIDs) > 0 ||
@@ -250,37 +332,39 @@ func renderPRComment(run Run, reportURL string, baseline *Run) string {
 			}
 		}
 
-		if coverage := run.Metadata.Coverage; coverage != nil {
-			hasCoverage := coverage.Overall != nil || len(coverage.PerCheck) > 0
-			if hasCoverage {
-				b.WriteString("\n#### Coverage\n\n")
-				b.WriteString("| Scope | Line | Branch | Function |\n")
-				b.WriteString("| --- | --- | --- | --- |\n")
-				if coverage.Overall != nil {
-					b.WriteString("| overall | ")
-					b.WriteString(renderCoverageMetric(coverage.Overall.Line))
-					b.WriteString(" | ")
-					b.WriteString(renderCoverageMetric(coverage.Overall.Branch))
-					b.WriteString(" | ")
-					b.WriteString(renderCoverageMetric(coverage.Overall.Function))
-					b.WriteString(" |\n")
-				}
-				checkIDs := make([]string, 0, len(coverage.PerCheck))
-				for checkID := range coverage.PerCheck {
-					checkIDs = append(checkIDs, checkID)
-				}
-				sort.Strings(checkIDs)
-				for _, checkID := range checkIDs {
-					metrics := coverage.PerCheck[checkID]
-					b.WriteString("| ")
-					b.WriteString(checkID)
-					b.WriteString(" | ")
-					b.WriteString(renderCoverageMetric(metrics.Line))
-					b.WriteString(" | ")
-					b.WriteString(renderCoverageMetric(metrics.Branch))
-					b.WriteString(" | ")
-					b.WriteString(renderCoverageMetric(metrics.Function))
-					b.WriteString(" |\n")
+		if options.showCoverage {
+			if coverage := run.Metadata.Coverage; coverage != nil {
+				hasCoverage := coverage.Overall != nil || len(coverage.PerCheck) > 0
+				if hasCoverage {
+					b.WriteString("\n#### Coverage\n\n")
+					b.WriteString("| Scope | Line | Branch | Function |\n")
+					b.WriteString("| --- | --- | --- | --- |\n")
+					if coverage.Overall != nil {
+						b.WriteString("| overall | ")
+						b.WriteString(renderCoverageMetric(coverage.Overall.Line))
+						b.WriteString(" | ")
+						b.WriteString(renderCoverageMetric(coverage.Overall.Branch))
+						b.WriteString(" | ")
+						b.WriteString(renderCoverageMetric(coverage.Overall.Function))
+						b.WriteString(" |\n")
+					}
+					checkIDs := make([]string, 0, len(coverage.PerCheck))
+					for checkID := range coverage.PerCheck {
+						checkIDs = append(checkIDs, checkID)
+					}
+					sort.Strings(checkIDs)
+					for _, checkID := range checkIDs {
+						metrics := coverage.PerCheck[checkID]
+						b.WriteString("| ")
+						b.WriteString(checkID)
+						b.WriteString(" | ")
+						b.WriteString(renderCoverageMetric(metrics.Line))
+						b.WriteString(" | ")
+						b.WriteString(renderCoverageMetric(metrics.Branch))
+						b.WriteString(" | ")
+						b.WriteString(renderCoverageMetric(metrics.Function))
+						b.WriteString(" |\n")
+					}
 				}
 			}
 		}

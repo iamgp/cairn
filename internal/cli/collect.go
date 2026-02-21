@@ -19,12 +19,25 @@ import (
 )
 
 type cairnConfig struct {
-	Project  cairnProjectConfig   `toml:"project"`
-	Checkers []cairnCheckerConfig `toml:"checkers"`
+	Project   cairnProjectConfig   `toml:"project"`
+	History   cairnHistoryConfig   `toml:"history"`
+	PRComment cairnPRCommentConfig `toml:"pr_comment"`
+	Checkers  []cairnCheckerConfig `toml:"checkers"`
 }
 
 type cairnProjectConfig struct {
 	Name string `toml:"name"`
+}
+
+type cairnHistoryConfig struct {
+	MaxDays int `toml:"max_days"`
+	MaxRuns int `toml:"max_runs"`
+}
+
+type cairnPRCommentConfig struct {
+	Enabled       *bool `toml:"enabled"`
+	ShowCoverage  *bool `toml:"show_coverage"`
+	ShowPerMatrix *bool `toml:"show_per_matrix"`
 }
 
 type cairnCheckerConfig struct {
@@ -496,6 +509,12 @@ func loadCairnConfig(path string) (cairnConfig, error) {
 	if strings.TrimSpace(cfg.Project.Name) == "" {
 		return cairnConfig{}, fmt.Errorf("config project.name is required")
 	}
+	if cfg.History.MaxDays < 0 {
+		return cairnConfig{}, fmt.Errorf("config history.max_days must be >= 0")
+	}
+	if cfg.History.MaxRuns < 0 {
+		return cairnConfig{}, fmt.Errorf("config history.max_runs must be >= 0")
+	}
 	if len(cfg.Checkers) == 0 {
 		return cairnConfig{}, fmt.Errorf("config must include at least one [[checkers]] entry")
 	}
@@ -513,6 +532,25 @@ func loadCairnConfig(path string) (cairnConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+func (cfg cairnConfig) prCommentEnabled() bool {
+	return boolPointerOrDefault(cfg.PRComment.Enabled, true)
+}
+
+func (cfg cairnConfig) prCommentShowCoverage() bool {
+	return boolPointerOrDefault(cfg.PRComment.ShowCoverage, true)
+}
+
+func (cfg cairnConfig) prCommentShowPerMatrix() bool {
+	return boolPointerOrDefault(cfg.PRComment.ShowPerMatrix, true)
+}
+
+func boolPointerOrDefault(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 func collectChecks(cfg cairnConfig, matrix map[string]string) ([]Check, error) {

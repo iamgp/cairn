@@ -11,7 +11,7 @@ func TestRootIncludesExpectedSubcommands(t *testing.T) {
 
 	cmd := NewRootCommand()
 
-	expected := []string{"ingest", "collect", "comment", "prune", "init"}
+	expected := []string{"ingest", "collect", "comment", "prune", "init", "check"}
 	for _, name := range expected {
 		if _, _, err := cmd.Find([]string{name}); err != nil {
 			t.Fatalf("expected subcommand %q to exist: %v", name, err)
@@ -29,6 +29,7 @@ func TestStubSubcommandsShowHelp(t *testing.T) {
 		{name: "ingest", args: []string{"ingest"}},
 		{name: "comment", args: []string{"comment"}},
 		{name: "prune", args: []string{"prune"}},
+		{name: "check", args: []string{"check"}},
 	}
 
 	for _, tc := range tests {

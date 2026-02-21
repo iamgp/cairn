@@ -73,13 +73,13 @@ Cairn keeps a long-running quality history for your repository and publishes a r
 - ` + "`name`" + `: Display name used in reports.
 
 ` + "`[history]`" + `
-- ` + "`max_days`" + `: Drop runs older than N days (` + "`0`" + ` keeps all history).
-- ` + "`max_runs`" + `: Keep only the latest N runs (` + "`0`" + ` keeps all runs).
+- ` + "`max_days`" + `: Drop runs older than N days (` + "`0`" + ` keeps all history). Used by ` + "`cairn prune`" + ` and applied automatically by the Cairn composite action after ingest.
+- ` + "`max_runs`" + `: Keep only the latest N runs (` + "`0`" + ` keeps all runs). Used by ` + "`cairn prune`" + ` and applied automatically by the Cairn composite action after ingest.
 
 ` + "`[pr_comment]`" + `
-- ` + "`enabled`" + `: Enable PR comment rendering.
-- ` + "`show_coverage`" + `: Show aggregate coverage when available.
-- ` + "`show_per_matrix`" + `: Split PR summaries by matrix dimensions.
+- ` + "`enabled`" + `: Enable/disable PR comment upserts in the Cairn composite action.
+- ` + "`show_coverage`" + `: Show or hide coverage tables in PR comments.
+- ` + "`show_per_matrix`" + `: Show or hide matrix metadata in PR comments.
 
 ` + "`[[checkers]]`" + ` (repeat per tool)
 - ` + "`id`" + `: Logical checker id.
