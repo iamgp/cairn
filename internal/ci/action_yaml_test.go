@@ -47,6 +47,10 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"cannot build TanStack report assets",
 		"git add -A",
 		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",
+		"post-pr-comment:",
+		"cairn comment \"${run_record_path}\" --out \"${comment_path}\" --report-url \"${report_url}\"",
+		"uses: actions/github-script@v7",
+		"<!-- cairn:comment -->",
 	}
 
 	for _, needle := range required {

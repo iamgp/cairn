@@ -54,6 +54,10 @@ inputs:
     description: "Whether to deploy GitHub Pages after ingest/build (requires pages + id-token permissions)"
     required: false
     default: "true"
+  post-pr-comment:
+    description: "Whether to render and upsert a Cairn PR comment on pull_request events"
+    required: false
+    default: "true"
 
 runs:
   using: "composite"
@@ -389,3 +393,54 @@ runs:
     - name: Deploy Pages
       if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
       uses: actions/deploy-pages@v4
+
+    - name: Render PR comment
+      if: ${{ inputs.post-pr-comment == 'true' && github.event_name == 'pull_request' }}
+      id: render-pr-comment
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        run_record_path="${{ steps.prepare-run-record.outputs.path }}"
+        run_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("run_id",""))' "${run_record_path}")"
+        report_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/#/run?run=${run_id}"
+
+        comment_path="${RUNNER_TEMP}/cairn-pr-comment.md"
+        cairn comment "${run_record_path}" --out "${comment_path}" --report-url "${report_url}"
+
+        echo "path=${comment_path}" >> "${GITHUB_OUTPUT}"
+
+    - name: Upsert PR comment
+      if: ${{ inputs.post-pr-comment == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs')
+          const issue_number = context.payload.pull_request.number
+          const body = fs.readFileSync(process.env.CAIRN_COMMENT_PATH, 'utf8')
+          const marker = '<!-- cairn:comment -->'
+          const { owner, repo } = context.repo
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner,
+            repo,
+            issue_number,
+            per_page: 100,
+          })
+          const existing = comments.find((c) => c.body && c.body.includes(marker))
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body,
+            })
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            })
+          }
+      env:
+        CAIRN_COMMENT_PATH: ${{ steps.render-pr-comment.outputs.path }}
