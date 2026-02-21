@@ -5,7 +5,7 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 ## What It Includes
 
 - CLI commands: `collect`, `ingest`, `comment`, `prune`, `init`
-- Built-in adapters: `junit_xml`, `ruff_json`, `ty_json`, `generic_json`
+- Built-in adapters: `junit_xml`, `ruff_json`, `ty_json`, `go_test_json`, `golangci_lint_json`, `generic_json`
 - Composite action in `action.yml` for CI ingestion into `gh-pages`
 - Rich report frontend in `web/` (TanStack Start + shadcn-style components)
 

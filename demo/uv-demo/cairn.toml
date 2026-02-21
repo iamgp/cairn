@@ -19,3 +19,18 @@ input = "demo-artifacts/pytest-junit.xml"
 id = "ruff"
 adapter = "ruff_json"
 input = "demo-artifacts/ruff-results.json"
+
+[[checkers]]
+id = "go-lint"
+adapter = "golangci_lint_json"
+input = "demo-artifacts/golangci-lint-results.json"
+
+[[checkers]]
+id = "go-typecheck"
+adapter = "go_test_json"
+input = "demo-artifacts/go-typecheck-results.json"
+
+[[checkers]]
+id = "go-test"
+adapter = "go_test_json"
+input = "demo-artifacts/go-test-results.json"

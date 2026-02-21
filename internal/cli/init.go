@@ -34,6 +34,21 @@ input = "ruff-results.json"
 id = "ty"
 adapter = "ty_json"
 input = "ty-results.json"
+
+[[checkers]]
+id = "go-lint"
+adapter = "golangci_lint_json"
+input = "golangci-lint-results.json"
+
+[[checkers]]
+id = "go-typecheck"
+adapter = "go_test_json"
+input = "go-typecheck-results.json"
+
+[[checkers]]
+id = "go-test"
+adapter = "go_test_json"
+input = "go-test-results.json"
 `
 
 const defaultReadme = `# Cairn
@@ -68,7 +83,7 @@ Cairn keeps a long-running quality history for your repository and publishes a r
 
 ` + "`[[checkers]]`" + ` (repeat per tool)
 - ` + "`id`" + `: Logical checker id.
-- ` + "`adapter`" + `: One of ` + "`junit_xml`" + `, ` + "`ruff_json`" + `, ` + "`ty_json`" + `, or ` + "`generic_json`" + `.
+- ` + "`adapter`" + `: One of ` + "`junit_xml`" + `, ` + "`ruff_json`" + `, ` + "`ty_json`" + `, ` + "`go_test_json`" + `, ` + "`golangci_lint_json`" + `, or ` + "`generic_json`" + `.
 - ` + "`input`" + `: Input file path (supports matrix placeholders like ` + "`{matrix.python}`" + `).
 
 For adapter-specific mapping details, see ` + "`docs/adapters.md`" + `.
@@ -79,6 +94,8 @@ Cairn ships with:
 - ` + "`junit_xml`" + ` for pytest and other JUnit-compatible outputs.
 - ` + "`ruff_json`" + ` for Ruff JSON output.
 - ` + "`ty_json`" + ` for Ty JSON output.
+- ` + "`go_test_json`" + ` for ` + "`go test -json`" + ` output streams (tests and typecheck runs).
+- ` + "`golangci_lint_json`" + ` for golangci-lint JSON output.
 - ` + "`generic_json`" + ` for custom JSON formats via mapping paths.
 
 ## Full Example Workflow
@@ -105,10 +122,17 @@ Copy and adapt this workflow for your repository:
           - uses: actions/setup-python@v5
             with:
               python-version: "3.12"
+          - uses: actions/setup-go@v5
+            with:
+              go-version-file: go.mod
           - run: pip install -e ".[dev]"
           - run: pytest --junitxml pytest.xml
           - run: ruff check --output-format json --output-file ruff-results.json
           - run: ty check --output json > ty-results.json
+          - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          - run: golangci-lint run --issues-exit-code=0 --out-format json > golangci-lint-results.json
+          - run: go test -run '^$' -json ./... > go-typecheck-results.json
+          - run: go test -json ./... > go-test-results.json
           - uses: iamgp/cairn@v0.1.0
             with:
               collect-config: cairn.toml
@@ -154,6 +178,28 @@ Example:
     id = "ty"
     adapter = "ty_json"
     input = "ty-results.json"
+
+### go_test_json
+
+Parses ` + "`go test -json`" + ` output streams.
+
+Example:
+
+    [[checkers]]
+    id = "go-test"
+    adapter = "go_test_json"
+    input = "go-test-results.json"
+
+### golangci_lint_json
+
+Parses golangci-lint JSON output.
+
+Example:
+
+    [[checkers]]
+    id = "go-lint"
+    adapter = "golangci_lint_json"
+    input = "golangci-lint-results.json"
 
 ## generic_json adapter
 
@@ -207,10 +253,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - run: pip install -e ".[dev]"
       - run: pytest --junitxml pytest.xml
       - run: ruff check --output-format json --output-file ruff-results.json
       - run: ty check --output json > ty-results.json
+      - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - run: golangci-lint run --issues-exit-code=0 --out-format json > golangci-lint-results.json
+      - run: go test -run '^$' -json ./... > go-typecheck-results.json
+      - run: go test -json ./... > go-test-results.json
       - uses: iamgp/cairn@v0.1.0
         with:
           collect-config: cairn.toml

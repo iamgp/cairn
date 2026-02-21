@@ -530,6 +530,10 @@ func collectChecks(cfg cairnConfig, matrix map[string]string) ([]Check, error) {
 			check, err = parseJSONCheckFile(checker.Input, parseRuffCheckJSON)
 		case "ty_json":
 			check, err = parseJSONCheckFile(checker.Input, parseTyCheckJSON)
+		case "go_test_json":
+			check, err = parseJSONCheckFile(checker.Input, parseGoTestJSON)
+		case "golangci_lint_json":
+			check, err = parseJSONCheckFile(checker.Input, parseGolangCILintJSON)
 		case "generic_json":
 			check, err = parseGenericJSONCheckFile(checker.Input, checker.ID, checker.Mapping)
 		default:
