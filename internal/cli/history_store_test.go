@@ -46,16 +46,16 @@ func TestAppendRunRecordCreatesHistoryFileOnFirstRun(t *testing.T) {
 	}
 }
 
-func TestAppendRunRecordAcceptsLegacySchemaVersion(t *testing.T) {
+func TestAppendRunRecordAcceptsCompatibleSchemaVersion(t *testing.T) {
 	t.Parallel()
 
 	pagesDir := t.TempDir()
 	run := Run{
-		Version: 1,
+		Version: 2,
 	}
 
 	if err := appendRunRecord(pagesDir, run); err != nil {
-		t.Fatalf("appendRunRecord() unexpected error for legacy version: %v", err)
+		t.Fatalf("appendRunRecord() unexpected error for compatible version: %v", err)
 	}
 }
 
