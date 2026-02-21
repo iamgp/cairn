@@ -45,6 +45,8 @@ Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preser
 
 By default, the action collects the run record, ingests history, builds the web report, pushes `gh-pages`, and deploys Pages in one step. It also auto-detects common tool versions and hashes common lockfiles. Set `deploy-pages: "false"` if you only want collect/ingest/build/push behavior.
 
+To post PR comments as a dedicated bot/app account (for example `Cairn`), pass `comment-token` with that account's token. Without it, comments are posted as `github-actions[bot]`.
+
 Phase-2 evidence flags (`--requirement-id`, `--artifact`, `--coverage`) and Phase-1 provenance flags (`--tool-version`, `--dependency-hash`) can be captured directly in `collect`.
 Coverage can also be ingested from reports with `--coverage-file` (LCOV, Cobertura XML, or JaCoCo XML).
 

@@ -7,6 +7,7 @@ import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 export const Route = createFileRoute('/run')({
   validateSearch: (search) => ({
     run: typeof search.run === 'string' ? search.run : '',
+    sha: typeof search.sha === 'string' ? search.sha : '',
   }),
   component: RunsPage,
 })
@@ -20,7 +21,11 @@ function RunsPage() {
   if (!runs.length) return <InfoState tone="neutral">No runs available yet.</InfoState>
 
   if (search.run) {
-    const run = runs.find((r) => r.run_id === search.run)
+    const run = runs.find((r) => {
+      if (r.run_id !== search.run) return false
+      if (!search.sha) return true
+      return (r.sha_full || r.sha) === search.sha
+    })
     if (run) return <RunDetailPage run={run} allRuns={runs} />
   }
 
