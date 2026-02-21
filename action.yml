@@ -19,7 +19,7 @@ inputs:
     required: false
     default: ""
   collect-matrix-json:
-    description: "Optional matrix context JSON (for example: ${{ toJSON(matrix) }}) to auto-add --matrix entries"
+    description: "Optional matrix context JSON (for example: {\"python\":\"3.12\"}) to auto-add --matrix entries"
     required: false
     default: ""
   auto-tool-versions:
@@ -277,22 +277,7 @@ runs:
 
           if [ -n "${collect_matrix_json}" ]; then
             if command -v python3 >/dev/null 2>&1; then
-              matrix_flags="$(python3 - "${collect_matrix_json}" <<'PY'
-import json
-import sys
-
-try:
-    payload = json.loads(sys.argv[1])
-except Exception:
-    sys.exit(1)
-
-if isinstance(payload, dict):
-    for key, value in payload.items():
-        if value is None:
-            continue
-        print(f"--matrix {key}={value}")
-PY
-)"
+              matrix_flags="$(python3 -c 'import json,sys; payload=json.loads(sys.argv[1]); print(" ".join([f\"--matrix {k}={v}\" for k, v in payload.items() if v is not None]))' "${collect_matrix_json}")"
               if [ -n "${matrix_flags}" ]; then
                 auto_args="${auto_args} ${matrix_flags}"
               fi
