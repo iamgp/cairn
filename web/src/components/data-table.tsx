@@ -61,7 +61,7 @@ export function DataTable<T>({
                       'px-3 py-2',
                       header.column.getCanSort() && 'cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200',
                     )}
-                    style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                    style={{ minWidth: header.getSize() !== 150 ? header.getSize() : undefined }}
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     <span className="inline-flex items-center gap-1">
