@@ -12,7 +12,14 @@ import (
 func TestParseCommentCommandArgs(t *testing.T) {
 	t.Parallel()
 
-	opts, err := parseCommentCommandArgs([]string{"run.json", "--out", "comment.md", "--report-url", "https://example.test/report"})
+	opts, err := parseCommentCommandArgs([]string{
+		"run.json",
+		"--out", "comment.md",
+		"--report-url", "https://example.test/report",
+		"--config", "cairn.toml",
+		"--show-coverage=false",
+		"--show-per-matrix=false",
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -24,6 +31,15 @@ func TestParseCommentCommandArgs(t *testing.T) {
 	}
 	if opts.reportURL != "https://example.test/report" {
 		t.Fatalf("unexpected report URL %q", opts.reportURL)
+	}
+	if opts.configPath != "cairn.toml" {
+		t.Fatalf("unexpected config path %q", opts.configPath)
+	}
+	if opts.showCoverage == nil || *opts.showCoverage {
+		t.Fatalf("unexpected showCoverage %#v", opts.showCoverage)
+	}
+	if opts.showPerMatrix == nil || *opts.showPerMatrix {
+		t.Fatalf("unexpected showPerMatrix %#v", opts.showPerMatrix)
 	}
 }
 
@@ -96,7 +112,10 @@ func TestRenderPRCommentWithCounts(t *testing.T) {
 		},
 	}
 
-	content := renderPRComment(run, "", nil)
+	content := renderPRComment(run, "", nil, commentRenderOptions{
+		showCoverage:  true,
+		showPerMatrix: true,
+	})
 	assertContains(t, content, "| pytest | failed | 2 | 1 | 3 |")
 	assertContains(t, content, "✅ Passed")
 	assertContains(t, content, "❌ Failed")
@@ -135,7 +154,10 @@ func TestRenderPRCommentWithBaseline(t *testing.T) {
 		},
 	}
 
-	content := renderPRComment(run, "", &baseline)
+	content := renderPRComment(run, "", &baseline, commentRenderOptions{
+		showCoverage:  true,
+		showPerMatrix: true,
+	})
 	assertContains(t, content, "#### 🆕 New Failures (vs `main`)")
 	assertContains(t, content, "| pytest | test_a | failed |")
 	assertContains(t, content, "#### ✅ Fixed (vs `main`)")
@@ -145,7 +167,10 @@ func TestRenderPRCommentWithBaseline(t *testing.T) {
 func TestRenderPRCommentNoChecks(t *testing.T) {
 	t.Parallel()
 
-	content := renderPRComment(Run{RunID: "run-2", SHAFull: "abcdef1234567"}, "", nil)
+	content := renderPRComment(Run{RunID: "run-2", SHAFull: "abcdef1234567"}, "", nil, commentRenderOptions{
+		showCoverage:  true,
+		showPerMatrix: true,
+	})
 
 	if !strings.Contains(content, "#/run/run-2") {
 		t.Fatalf("expected default run URL, got %q", content)
@@ -198,7 +223,10 @@ func TestRenderPRCommentWithRegulatedMetadata(t *testing.T) {
 		},
 	}
 
-	content := renderPRComment(run, "", nil)
+	content := renderPRComment(run, "", nil, commentRenderOptions{
+		showCoverage:  true,
+		showPerMatrix: true,
+	})
 	assertContains(t, content, "#### Traceability")
 	assertContains(t, content, "- Requirements: `REQ-1`")
 	assertContains(t, content, "- Specs: `SPEC-7`")
@@ -209,4 +237,40 @@ func TestRenderPRCommentWithRegulatedMetadata(t *testing.T) {
 	assertContains(t, content, "#### Coverage")
 	assertContains(t, content, "| overall | 90/100 (90.0%) | - | - |")
 	assertContains(t, content, "| pytest | - | - | 5/10 (50.0%) |")
+}
+
+func TestRenderPRCommentRespectsMatrixAndCoverageToggles(t *testing.T) {
+	t.Parallel()
+
+	run := Run{
+		RunID: "run-options",
+		SHA:   "abc1234",
+		Matrix: map[string]string{
+			"os":     "ubuntu-latest",
+			"python": "3.12",
+		},
+		Checks: []Check{
+			{
+				Tool:   "pytest",
+				Status: "passed",
+				Items: []Item{
+					{ID: "test_a", Status: "passed"},
+				},
+			},
+		},
+		Metadata: &RunMetadata{
+			Coverage: &RunCoverageMetadata{
+				Overall: &RunCoverageMetricsMap{
+					Line: &RunCoverageMetric{Covered: 9, Total: 10, Percent: 90},
+				},
+			},
+		},
+	}
+
+	content := renderPRComment(run, "", nil, commentRenderOptions{
+		showCoverage:  false,
+		showPerMatrix: false,
+	})
+	assertNotContains(t, content, "#### Coverage")
+	assertNotContains(t, content, "#### Matrix")
 }
