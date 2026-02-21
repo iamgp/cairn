@@ -25,9 +25,9 @@ export const runTableColumns = [
   }),
   col.accessor('branch', {
     header: 'Branch',
-    size: 90,
+    size: 220,
     cell: ({ getValue }) => (
-      <span className="font-mono text-gray-500 dark:text-gray-400">{getValue() || '-'}</span>
+      <span className="font-mono whitespace-nowrap text-gray-500 dark:text-gray-400">{getValue() || '-'}</span>
     ),
   }),
   col.accessor((row) => runStatus(row), {
