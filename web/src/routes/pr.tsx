@@ -1,14 +1,20 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StatusBadge } from '../components/status-badge'
 import { RunScopeTabs } from '../components/run-scope-tabs'
 import { defaultFilters, filterRuns, runDuration, runStatus, useHistoryRuns, useRunOptions, type RunFilters, type RunRecord } from '../lib/history'
 import { relativeTime } from '../lib/utils'
 
-export const Route = createFileRoute('/pr')({ component: PRPage })
+export const Route = createFileRoute('/pr')({
+  validateSearch: (search) => ({
+    group: typeof search.group === 'string' ? search.group : '',
+  }),
+  component: PRPage,
+})
 
 function PRPage() {
   const { runs, loading, error } = useHistoryRuns()
+  const search = Route.useSearch()
   const [filters, setFilters] = useState(defaultFilters)
   const prRuns = useMemo(() => runs.filter((run) => run.pr != null), [runs])
   const options = useRunOptions(prRuns)
@@ -34,6 +40,14 @@ function PRPage() {
   }, [filtered])
 
   const hasActiveFilters = filters.query !== '' || filters.status !== 'any' || filters.checker !== 'any' || filters.branch !== 'any' || filters.pr !== 'any'
+
+  useEffect(() => {
+    if (search.group === 'failed') {
+      setFilters((prev) => ({ ...prev, status: 'failed_or_error' }))
+      return
+    }
+    setFilters((prev) => ({ ...prev, status: 'any' }))
+  }, [search.group])
 
   if (loading) return <InfoState tone="neutral">Loading history...</InfoState>
   if (error) return <InfoState tone="danger">Failed to load history: {error}</InfoState>
@@ -78,7 +92,14 @@ function PRPage() {
           />
         </div>
         <FilterSelect value={filters.status} onChange={(v) => updateFilter('status', v)}
-          options={[{ value: 'any', label: 'Status' }, { value: 'passed', label: 'Passed' }, { value: 'failed', label: 'Failed' }, { value: 'error', label: 'Error' }, { value: 'skipped', label: 'Skipped' }]} />
+          options={[
+            { value: 'any', label: 'Status' },
+            { value: 'failed_or_error', label: 'Failed / Error' },
+            { value: 'passed', label: 'Passed' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'error', label: 'Error' },
+            { value: 'skipped', label: 'Skipped' },
+          ]} />
         <FilterSelect value={filters.checker} onChange={(v) => updateFilter('checker', v)}
           options={options.checkers.map((c) => ({ value: c, label: c === 'any' ? 'Checker' : c }))} />
         <FilterSelect value={filters.branch} onChange={(v) => updateFilter('branch', v)}
@@ -128,6 +149,10 @@ function PRPage() {
 
 function PRRunCard({ run }: { run: RunRecord }) {
   const status = runStatus(run)
+  const traceability = run.metadata?.traceability
+  const lineCoverage = run.metadata?.coverage?.overall?.line
+  const actor = run.metadata?.actor?.login
+  const tools = Object.keys(run.metadata?.reproducibility?.tool_versions || {})
 
   return (
     <Link
@@ -141,6 +166,9 @@ function PRRunCard({ run }: { run: RunRecord }) {
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {run.branch || 'no branch'} · {relativeTime(run.timestamp)}
           </p>
+          {traceability?.commit_message && (
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">{traceability.commit_message}</p>
+          )}
         </div>
         <StatusBadge status={status} />
       </div>
@@ -164,6 +192,36 @@ function PRRunCard({ run }: { run: RunRecord }) {
           <span className="text-[10px] rounded-full border border-gray-200 bg-white px-2 py-0.5 text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 font-mono">
             {run.sha.slice(0, 10)}
           </span>
+          {(traceability?.requirement_ids || []).slice(0, 2).map((id) => (
+            <span key={`req-${id}`} className="text-[10px] rounded-full bg-blue-100 px-2 py-0.5 font-mono text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              {id}
+            </span>
+          ))}
+          {(traceability?.spec_ids || []).slice(0, 1).map((id) => (
+            <span key={`spec-${id}`} className="text-[10px] rounded-full bg-indigo-100 px-2 py-0.5 font-mono text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              {id}
+            </span>
+          ))}
+          {(traceability?.risk_ids || []).slice(0, 1).map((id) => (
+            <span key={`risk-${id}`} className="text-[10px] rounded-full bg-rose-100 px-2 py-0.5 font-mono text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+              {id}
+            </span>
+          ))}
+          {lineCoverage && (
+            <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              line {lineCoverage.percent.toFixed(1)}%
+            </span>
+          )}
+          {actor && (
+            <span className="text-[10px] rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              @{actor}
+            </span>
+          )}
+          {tools.length > 0 && (
+            <span className="text-[10px] rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              {tools.length} tool{tools.length === 1 ? '' : 's'}
+            </span>
+          )}
         </div>
       )}
     </Link>

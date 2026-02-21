@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StatusBadge } from '../components/status-badge'
 import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunItem, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
@@ -175,11 +175,32 @@ function formatCoverageMetric(metric?: { covered: number; total: number; percent
 function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) {
   const status = runStatus(run)
   const checks = run.checks || []
+  const environment = run.metadata?.environment
+  const actor = run.metadata?.actor
+  const reproducibility = run.metadata?.reproducibility
   const traceability = run.metadata?.traceability
   const artifacts = run.metadata?.provenance?.artifacts || []
   const overallCoverage = run.metadata?.coverage?.overall
   const perCheckCoverage = run.metadata?.coverage?.per_check || {}
   const perCheckCoverageRows = Object.entries(perCheckCoverage).sort(([a], [b]) => a.localeCompare(b))
+  const toolVersions = Object.entries(reproducibility?.tool_versions || {}).sort(([a], [b]) => a.localeCompare(b))
+  const dependencyHashes = Object.entries(reproducibility?.dependency_hashes || {}).sort(([a], [b]) => a.localeCompare(b))
+  const hasEnvironment = Boolean(
+    environment?.provider ||
+    environment?.repository ||
+    environment?.workflow ||
+    environment?.job ||
+    environment?.runner_os ||
+    environment?.runner_arch ||
+    environment?.runner_name,
+  )
+  const hasActor = Boolean(
+    actor?.login ||
+    actor?.triggering_login ||
+    actor?.committer_name ||
+    actor?.committer_email,
+  )
+  const hasReproducibility = Boolean(toolVersions.length > 0 || dependencyHashes.length > 0 || reproducibility?.config_sha256)
   const hasTraceability = Boolean(
     traceability?.commit_message ||
     (traceability?.requirement_ids && traceability.requirement_ids.length > 0) ||
@@ -214,6 +235,19 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
   const [statusFilter, setStatusFilter] = useState('all')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    if (selected || checks.length === 0) return
+    for (const check of checks) {
+      const failIndex = (check.items || []).findIndex((item) => ['failed', 'error'].includes((item.status || '').toLowerCase()))
+      if (failIndex >= 0) {
+        setSelected({ checker: check.tool, index: failIndex })
+        return
+      }
+    }
+    const firstWithItems = checks.find((check) => (check.items || []).length > 0)
+    if (firstWithItems) setSelected({ checker: firstWithItems.tool, index: 0 })
+  }, [selected, checks])
 
   const selectedItem = useMemo(() => {
     if (!selected) return null
@@ -273,16 +307,27 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Back link */}
-      <Link
-        to="/run"
-        search={{ run: '' }}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-        </svg>
-        All Runs
-      </Link>
+      {run.pr != null ? (
+        <Link
+          to="/pr"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Back to Pull Requests
+        </Link>
+      ) : (
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Back to Main Branch
+        </Link>
+      )}
 
       {/* Header */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -315,8 +360,69 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
         ))}
       </div>
 
-      {(hasTraceability || hasProvenance || hasCoverage) && (
-        <div className="mb-4 grid gap-3 lg:grid-cols-3">
+      {(hasTraceability || hasProvenance || hasCoverage || hasEnvironment || hasActor || hasReproducibility) && (
+        <div className="mb-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          {hasEnvironment && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Environment</h2>
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p>Provider: <span className="font-medium">{environment?.provider || '-'}</span></p>
+                <p>Repository: <span className="font-medium">{environment?.repository || '-'}</span></p>
+                <p>Workflow: <span className="font-medium">{environment?.workflow || '-'}</span></p>
+                <p>Job: <span className="font-medium">{environment?.job || '-'}</span></p>
+                <p>Runner: <span className="font-medium">{environment?.runner_os || '-'} / {environment?.runner_arch || '-'}</span></p>
+                {environment?.runner_name && <p>Name: <span className="font-medium">{environment.runner_name}</span></p>}
+              </div>
+            </section>
+          )}
+
+          {hasActor && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Actor</h2>
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p>Triggered by: <span className="font-medium">{actor?.triggering_login || actor?.login || '-'}</span></p>
+                <p>Actor: <span className="font-medium">{actor?.login || '-'}</span></p>
+                {actor?.id && <p>Actor ID: <span className="font-mono">{actor.id}</span></p>}
+                {actor?.committer_name && <p>Committer: <span className="font-medium">{actor.committer_name}</span></p>}
+                {actor?.committer_email && <p>Email: <span className="font-mono">{actor.committer_email}</span></p>}
+              </div>
+            </section>
+          )}
+
+          {hasReproducibility && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Reproducibility</h2>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                {toolVersions.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-gray-500 dark:text-gray-400">Tool Versions</p>
+                    <div className="flex flex-wrap gap-1">
+                      {toolVersions.map(([tool, version]) => (
+                        <span key={`tool-${tool}`} className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                          {tool}={version}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dependencyHashes.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-gray-500 dark:text-gray-400">Dependency Hashes</p>
+                    <div className="space-y-1">
+                      {dependencyHashes.slice(0, 3).map(([name, hash]) => (
+                        <p key={`dep-${name}`} className="font-mono text-gray-500 dark:text-gray-400 truncate">{name}: {hash}</p>
+                      ))}
+                      {dependencyHashes.length > 3 && <p className="text-gray-500 dark:text-gray-400">+{dependencyHashes.length - 3} more</p>}
+                    </div>
+                  </div>
+                )}
+                {reproducibility?.config_sha256 && (
+                  <p className="font-mono text-gray-500 dark:text-gray-400 truncate">config_sha256: {reproducibility.config_sha256}</p>
+                )}
+              </div>
+            </section>
+          )}
+
           {hasTraceability && (
             <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Traceability</h2>

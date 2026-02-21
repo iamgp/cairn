@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { DataTable } from '../components/data-table'
 import { RunScopeTabs } from '../components/run-scope-tabs'
@@ -90,11 +90,17 @@ const columns = [
   }),
 ]
 
-export const Route = createFileRoute('/')({ component: OverviewPage })
+export const Route = createFileRoute('/')({
+  validateSearch: (search) => ({
+    group: typeof search.group === 'string' ? search.group : '',
+  }),
+  component: OverviewPage,
+})
 
 function OverviewPage() {
   const { runs, loading, error } = useHistoryRuns()
   const navigate = useNavigate()
+  const search = Route.useSearch()
   const [filters, setFilters] = useState(defaultFilters)
   const mainRuns = useMemo(() => runs.filter((run) => run.pr == null), [runs])
   const options = useRunOptions(mainRuns)
@@ -114,6 +120,14 @@ function OverviewPage() {
   )
 
   const hasActiveFilters = filters.query !== '' || filters.status !== 'any' || filters.checker !== 'any' || filters.branch !== 'any' || filters.pr !== 'any'
+
+  useEffect(() => {
+    if (search.group === 'failed') {
+      setFilters((prev) => ({ ...prev, status: 'failed_or_error' }))
+      return
+    }
+    setFilters((prev) => ({ ...prev, status: 'any' }))
+  }, [search.group])
 
   if (loading) return <InfoState tone="neutral">Loading history...</InfoState>
   if (error) return <InfoState tone="danger">Failed to load history: {error}</InfoState>
@@ -181,7 +195,14 @@ function OverviewPage() {
           />
         </div>
         <FilterSelect value={filters.status} onChange={(v) => updateFilter('status', v)}
-          options={[{ value: 'any', label: 'Status' }, { value: 'passed', label: 'Passed' }, { value: 'failed', label: 'Failed' }, { value: 'error', label: 'Error' }, { value: 'skipped', label: 'Skipped' }]} />
+          options={[
+            { value: 'any', label: 'Status' },
+            { value: 'failed_or_error', label: 'Failed / Error' },
+            { value: 'passed', label: 'Passed' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'error', label: 'Error' },
+            { value: 'skipped', label: 'Skipped' },
+          ]} />
         <FilterSelect value={filters.checker} onChange={(v) => updateFilter('checker', v)}
           options={options.checkers.map((c) => ({ value: c, label: c === 'any' ? 'Checker' : c }))} />
         <FilterSelect value={filters.branch} onChange={(v) => updateFilter('branch', v)}

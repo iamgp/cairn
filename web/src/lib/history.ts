@@ -30,6 +30,28 @@ export type RunCoverageMetricsMap = {
 }
 
 export type RunMetadata = {
+  environment?: {
+    ci?: boolean
+    provider?: string
+    repository?: string
+    workflow?: string
+    job?: string
+    runner_os?: string
+    runner_arch?: string
+    runner_name?: string
+  }
+  actor?: {
+    login?: string
+    id?: string
+    triggering_login?: string
+    committer_name?: string
+    committer_email?: string
+  }
+  reproducibility?: {
+    tool_versions?: Record<string, string>
+    dependency_hashes?: Record<string, string>
+    config_sha256?: string
+  }
   traceability?: {
     requirement_ids?: string[]
     spec_ids?: string[]
@@ -169,7 +191,8 @@ export function filterRuns(runs: RunRecord[], filters: RunFilters) {
 
   return runs.filter((run) => {
     const status = runStatus(run)
-    if (filters.status !== 'any' && status !== filters.status) return false
+    if (filters.status === 'failed_or_error' && status !== 'failed' && status !== 'error') return false
+    if (filters.status !== 'any' && filters.status !== 'failed_or_error' && status !== filters.status) return false
     if (filters.branch !== 'any' && run.branch !== filters.branch) return false
     if (filters.pr !== 'any' && String(run.pr ?? '') !== filters.pr) return false
     if (filters.checker !== 'any' && !(run.checks || []).some((c) => c.tool === filters.checker)) {
