@@ -47,13 +47,13 @@ export const runTableColumns = [
   col.display({
     id: 'checkers',
     header: 'Checkers',
-    size: 120,
+    size: 180,
     cell: ({ row }) => (
       <div className="flex gap-1">
         {(row.original.checks || []).map((c) => (
           <span
             key={c.tool}
-            className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            className={`inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium ${
               c.status === 'passed'
                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
                 : ['failed', 'error'].includes(c.status)
