@@ -1,8 +1,7 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { createColumnHelper } from '@tanstack/react-table'
 import { DataTable } from '../components/data-table'
-import { RunScopeTabs } from '../components/run-scope-tabs'
+import { runTableColumns } from '../components/run-table-columns'
 import {
   defaultFilters,
   filterRuns,
@@ -14,81 +13,6 @@ import {
   type RunRecord,
 } from '../lib/history'
 import { relativeTime } from '../lib/utils'
-
-function statusDot(status: string): string {
-  if (status === 'passed') return 'bg-emerald-500'
-  if (status === 'failed' || status === 'error') return 'bg-rose-500'
-  if (status === 'skipped') return 'bg-amber-500'
-  return 'bg-gray-400'
-}
-
-const col = createColumnHelper<RunRecord>()
-
-const columns = [
-  col.accessor('run_id', {
-    header: 'Run',
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 dark:text-gray-100">{row.original.run_id}</span>
-        {row.original.pr != null && (
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">PR #{row.original.pr}</span>
-        )}
-      </div>
-    ),
-  }),
-  col.accessor('branch', {
-    header: 'Branch',
-    size: 90,
-    cell: ({ getValue }) => (
-      <span className="text-gray-500 dark:text-gray-400 font-mono">{getValue() || '-'}</span>
-    ),
-  }),
-  col.accessor((row) => runStatus(row), {
-    id: 'status',
-    header: 'Status',
-    size: 80,
-    cell: ({ getValue }) => {
-      const s = getValue()
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${statusDot(s)}`} />
-          <span className="text-gray-600 dark:text-gray-400 capitalize">{s}</span>
-        </span>
-      )
-    },
-  }),
-  col.display({
-    id: 'checkers',
-    header: 'Checkers',
-    size: 120,
-    cell: ({ row }) => (
-      <div className="flex gap-1">
-        {(row.original.checks || []).map((c) => (
-          <span key={c.tool} className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            c.status === 'passed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-            : ['failed','error'].includes(c.status) ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'
-            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-          }`}>{c.tool}</span>
-        ))}
-      </div>
-    ),
-  }),
-  col.accessor((row) => runDuration(row), {
-    id: 'duration',
-    header: 'Duration',
-    size: 70,
-    cell: ({ getValue }) => (
-      <span className="text-gray-500 dark:text-gray-400 font-mono text-right block">{getValue().toFixed(1)}s</span>
-    ),
-  }),
-  col.accessor('timestamp', {
-    header: 'Time',
-    size: 90,
-    cell: ({ getValue }) => (
-      <span className="text-gray-400 dark:text-gray-500 text-right block">{relativeTime(getValue())}</span>
-    ),
-  }),
-]
 
 export const Route = createFileRoute('/')({
   validateSearch: (search) => ({
@@ -156,8 +80,6 @@ function OverviewPage() {
           </span>
         </div>
       </div>
-      <RunScopeTabs className="mb-6" />
-
       {/* Metric Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label="Runs" value={summary.total} />
@@ -221,7 +143,7 @@ function OverviewPage() {
 
       {/* Table */}
       <DataTable
-        columns={columns}
+        columns={runTableColumns}
         data={filtered}
         pageSize={50}
         onRowClick={(run) => navigate({ to: '/run', search: { run: run.run_id } })}

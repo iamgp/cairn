@@ -1,9 +1,8 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { StatusBadge } from '../components/status-badge'
-import { RunScopeTabs } from '../components/run-scope-tabs'
-import { defaultFilters, filterRuns, runDuration, runStatus, useHistoryRuns, useRunOptions, type RunFilters, type RunRecord } from '../lib/history'
-import { relativeTime } from '../lib/utils'
+import { DataTable } from '../components/data-table'
+import { runTableColumns } from '../components/run-table-columns'
+import { defaultFilters, filterRuns, runStatus, useHistoryRuns, useRunOptions, type RunFilters } from '../lib/history'
 
 export const Route = createFileRoute('/pr')({
   validateSearch: (search) => ({
@@ -14,29 +13,19 @@ export const Route = createFileRoute('/pr')({
 
 function PRPage() {
   const { runs, loading, error } = useHistoryRuns()
+  const navigate = useNavigate()
   const search = Route.useSearch()
   const [filters, setFilters] = useState(defaultFilters)
   const prRuns = useMemo(() => runs.filter((run) => run.pr != null), [runs])
   const options = useRunOptions(prRuns)
   const filtered = useMemo(() => filterRuns(prRuns, filters), [prRuns, filters])
-
-  const groups = useMemo(() => {
-    const map = new Map<number, RunRecord[]>()
-    for (const run of filtered) {
-      if (run.pr == null) continue
-      const bucket = map.get(run.pr) ?? []
-      bucket.push(run)
-      map.set(run.pr, bucket)
-    }
-
-    return Array.from(map.entries())
-      .sort((a, b) => b[0] - a[0])
-      .map(([pr, prRuns]) => ({
-        pr,
-        runs: prRuns,
-        passed: prRuns.filter((run) => runStatus(run) === 'passed').length,
-        failed: prRuns.filter((run) => ['failed', 'error'].includes(runStatus(run))).length,
-      }))
+  const summary = useMemo(() => {
+    const total = filtered.length
+    const passed = filtered.filter((run) => runStatus(run) === 'passed').length
+    const failed = filtered.filter((run) => ['failed', 'error'].includes(runStatus(run))).length
+    const skipped = filtered.filter((run) => runStatus(run) === 'skipped').length
+    const prs = new Set(filtered.map((run) => String(run.pr ?? '')).filter(Boolean)).size
+    return { total, passed, failed, skipped, prs }
   }, [filtered])
 
   const hasActiveFilters = filters.query !== '' || filters.status !== 'any' || filters.checker !== 'any' || filters.branch !== 'any' || filters.pr !== 'any'
@@ -63,19 +52,21 @@ function PRPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pull Requests</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {groups.length} PR{groups.length !== 1 ? 's' : ''} with {filtered.length} runs
+            {summary.prs} PR{summary.prs !== 1 ? 's' : ''} with {summary.total} runs
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 font-medium">
-            {groups.reduce((acc, g) => acc + g.passed, 0)} passed
+            {summary.passed} passed
           </span>
           <span className="rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 px-2.5 py-1 font-medium">
-            {groups.reduce((acc, g) => acc + g.failed, 0)} failed
+            {summary.failed} failed
+          </span>
+          <span className="rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 px-2.5 py-1 font-medium">
+            {summary.skipped} skipped
           </span>
         </div>
       </div>
-      <RunScopeTabs className="mb-6" />
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -116,115 +107,13 @@ function PRPage() {
         )}
       </div>
 
-      {/* PR Groups */}
-      {groups.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-400 dark:text-gray-500 text-sm">No PR runs found. Try widening filters.</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {groups.map((group) => (
-            <div key={group.pr}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-6 rounded-full bg-blue-500 dark:bg-blue-400" />
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                  PR #{group.pr}
-                </h2>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  {group.runs.length} run{group.runs.length !== 1 ? 's' : ''} · {group.failed} failing
-                </span>
-              </div>
-              <div className="ml-2 border-l border-gray-200 pl-3 dark:border-gray-800 space-y-3 sm:ml-4 sm:pl-4">
-                {group.runs.map((run) => (
-                  <PRRunCard key={`${group.pr}-${run.run_id}-${run.timestamp}`} run={run} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <DataTable
+        columns={runTableColumns}
+        data={filtered}
+        pageSize={50}
+        onRowClick={(run) => navigate({ to: '/run', search: { run: run.run_id } })}
+      />
     </div>
-  )
-}
-
-function PRRunCard({ run }: { run: RunRecord }) {
-  const status = runStatus(run)
-  const traceability = run.metadata?.traceability
-  const lineCoverage = run.metadata?.coverage?.overall?.line
-  const actor = run.metadata?.actor?.login
-  const tools = Object.keys(run.metadata?.reproducibility?.tool_versions || {})
-
-  return (
-    <Link
-      to="/run"
-      search={{ run: run.run_id }}
-      className="block rounded-lg border border-gray-200/80 bg-white p-4 transition hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{run.run_id}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {run.branch || 'no branch'} · {relativeTime(run.timestamp)}
-          </p>
-          {traceability?.commit_message && (
-            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300 line-clamp-2">{traceability.commit_message}</p>
-          )}
-        </div>
-        <StatusBadge status={status} />
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {(run.checks || []).map((check) => (
-            <span
-              key={check.tool}
-              className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-            >
-              {check.tool}: {check.status}
-            </span>
-          ))}
-        </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0 ml-4">
-          {runDuration(run).toFixed(1)}s
-        </span>
-      </div>
-      {run.sha && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span className="text-[10px] rounded-full border border-gray-200 bg-white px-2 py-0.5 text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 font-mono">
-            {run.sha.slice(0, 10)}
-          </span>
-          {(traceability?.requirement_ids || []).slice(0, 2).map((id) => (
-            <span key={`req-${id}`} className="text-[10px] rounded-full bg-blue-100 px-2 py-0.5 font-mono text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-              {id}
-            </span>
-          ))}
-          {(traceability?.spec_ids || []).slice(0, 1).map((id) => (
-            <span key={`spec-${id}`} className="text-[10px] rounded-full bg-indigo-100 px-2 py-0.5 font-mono text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-              {id}
-            </span>
-          ))}
-          {(traceability?.risk_ids || []).slice(0, 1).map((id) => (
-            <span key={`risk-${id}`} className="text-[10px] rounded-full bg-rose-100 px-2 py-0.5 font-mono text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-              {id}
-            </span>
-          ))}
-          {lineCoverage && (
-            <span className="text-[10px] rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-              line {lineCoverage.percent.toFixed(1)}%
-            </span>
-          )}
-          {actor && (
-            <span className="text-[10px] rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-              @{actor}
-            </span>
-          )}
-          {tools.length > 0 && (
-            <span className="text-[10px] rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-              {tools.length} tool{tools.length === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-      )}
-    </Link>
   )
 }
 
