@@ -35,6 +35,28 @@ adapter = "ty_json"
 input = "ty-results.json"
 ```
 
+## `go_test_json`
+
+Use for `go test -json` output streams (works for both tests and compile/typecheck-only runs).
+
+```toml
+[[checkers]]
+id = "go-test"
+adapter = "go_test_json"
+input = "go-test-results.json"
+```
+
+## `golangci_lint_json`
+
+Use for golangci-lint JSON output.
+
+```toml
+[[checkers]]
+id = "go-lint"
+adapter = "golangci_lint_json"
+input = "golangci-lint-results.json"
+```
+
 ## `generic_json`
 
 Use when your tool emits JSON but there is no dedicated built-in adapter.

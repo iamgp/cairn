@@ -1,4 +1,4 @@
-name: Cairn Demo (uv + pytest + ruff)
+name: Cairn Demo (uv + pytest + ruff + go)
 
 on:
   push:
@@ -48,6 +48,29 @@ jobs:
         run: |
           PYTHONPATH=demo/uv-demo/src \
             uv run --project demo/uv-demo ruff check demo/uv-demo/src --output-format json --output-file demo-artifacts/ruff-results.json
+
+      - name: Install golangci-lint
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run golangci-lint (JSON)
+        continue-on-error: true
+        run: |
+          mkdir -p demo-artifacts
+          golangci-lint run --issues-exit-code=0 --out-format json > demo-artifacts/golangci-lint-results.json
+
+      - name: Run Go typecheck (JSON stream)
+        continue-on-error: true
+        run: |
+          mkdir -p demo-artifacts
+          go test -run '^$' -json ./... > demo-artifacts/go-typecheck-results.json
+
+      - name: Run Go tests (JSON stream)
+        continue-on-error: true
+        run: |
+          mkdir -p demo-artifacts
+          go test -json ./... > demo-artifacts/go-test-results.json
 
       - name: Build Cairn binary
         run: |
