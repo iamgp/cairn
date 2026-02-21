@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -196,6 +197,94 @@ func renderPRComment(run Run, reportURL string, baseline *Run) string {
 		b.WriteString(" |\n")
 	}
 
+	if run.Metadata != nil {
+		if traceability := run.Metadata.Traceability; traceability != nil {
+			hasTraceability := len(traceability.RequirementIDs) > 0 ||
+				len(traceability.SpecIDs) > 0 ||
+				len(traceability.RiskIDs) > 0 ||
+				strings.TrimSpace(traceability.CommitMessage) != ""
+			if hasTraceability {
+				b.WriteString("\n#### Traceability\n\n")
+				if len(traceability.RequirementIDs) > 0 {
+					b.WriteString("- Requirements: `")
+					b.WriteString(strings.Join(traceability.RequirementIDs, "`, `"))
+					b.WriteString("`\n")
+				}
+				if len(traceability.SpecIDs) > 0 {
+					b.WriteString("- Specs: `")
+					b.WriteString(strings.Join(traceability.SpecIDs, "`, `"))
+					b.WriteString("`\n")
+				}
+				if len(traceability.RiskIDs) > 0 {
+					b.WriteString("- Risks: `")
+					b.WriteString(strings.Join(traceability.RiskIDs, "`, `"))
+					b.WriteString("`\n")
+				}
+				if msg := strings.TrimSpace(traceability.CommitMessage); msg != "" {
+					b.WriteString("- Commit message: ")
+					b.WriteString(msg)
+					b.WriteString("\n")
+				}
+			}
+		}
+
+		if provenance := run.Metadata.Provenance; provenance != nil && len(provenance.Artifacts) > 0 {
+			b.WriteString("\n#### Artifact Provenance\n\n")
+			b.WriteString("| Role | Path | SHA256 | Size |\n")
+			b.WriteString("| --- | --- | --- | ---: |\n")
+			for _, artifact := range provenance.Artifacts {
+				b.WriteString("| ")
+				b.WriteString(strings.TrimSpace(artifact.Role))
+				b.WriteString(" | ")
+				b.WriteString(strings.TrimSpace(artifact.Path))
+				b.WriteString(" | ")
+				b.WriteString(strings.TrimSpace(artifact.SHA256))
+				b.WriteString(" | ")
+				if artifact.SizeBytes > 0 {
+					b.WriteString(fmt.Sprintf("%d bytes", artifact.SizeBytes))
+				} else {
+					b.WriteString("-")
+				}
+				b.WriteString(" |\n")
+			}
+		}
+
+		if coverage := run.Metadata.Coverage; coverage != nil {
+			hasCoverage := coverage.Overall != nil || len(coverage.PerCheck) > 0
+			if hasCoverage {
+				b.WriteString("\n#### Coverage\n\n")
+				b.WriteString("| Scope | Line | Branch | Function |\n")
+				b.WriteString("| --- | --- | --- | --- |\n")
+				if coverage.Overall != nil {
+					b.WriteString("| overall | ")
+					b.WriteString(renderCoverageMetric(coverage.Overall.Line))
+					b.WriteString(" | ")
+					b.WriteString(renderCoverageMetric(coverage.Overall.Branch))
+					b.WriteString(" | ")
+					b.WriteString(renderCoverageMetric(coverage.Overall.Function))
+					b.WriteString(" |\n")
+				}
+				checkIDs := make([]string, 0, len(coverage.PerCheck))
+				for checkID := range coverage.PerCheck {
+					checkIDs = append(checkIDs, checkID)
+				}
+				sort.Strings(checkIDs)
+				for _, checkID := range checkIDs {
+					metrics := coverage.PerCheck[checkID]
+					b.WriteString("| ")
+					b.WriteString(checkID)
+					b.WriteString(" | ")
+					b.WriteString(renderCoverageMetric(metrics.Line))
+					b.WriteString(" | ")
+					b.WriteString(renderCoverageMetric(metrics.Branch))
+					b.WriteString(" | ")
+					b.WriteString(renderCoverageMetric(metrics.Function))
+					b.WriteString(" |\n")
+				}
+			}
+		}
+	}
+
 	if baseline != nil {
 		newFailures, fixed := diffItems(run, *baseline)
 
@@ -233,4 +322,11 @@ func renderPRComment(run Run, reportURL string, baseline *Run) string {
 	}
 
 	return b.String()
+}
+
+func renderCoverageMetric(metric *RunCoverageMetric) string {
+	if metric == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d/%d (%.1f%%)", metric.Covered, metric.Total, metric.Percent)
 }

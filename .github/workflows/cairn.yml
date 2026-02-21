@@ -61,7 +61,14 @@ jobs:
             --run-id "${{ github.run_id }}-py312" \
             --sha-full "${{ github.sha }}" \
             --branch "${{ github.ref_name }}" \
-            --matrix "python=3.12"
+            --matrix "python=3.12" \
+            --requirement-id "REQ-PY-TESTS-001" \
+            --artifact "pytest=demo-artifacts/pytest-junit.xml" \
+            --artifact "ruff=demo-artifacts/ruff-results.json" \
+            --coverage "overall:line=924/1000" \
+            --tool-version "python=3.12" \
+            --tool-version "ruff=latest" \
+            --dependency-hash "uv.lock=${{ hashFiles('demo/uv-demo/uv.lock') }}"
 
       - uses: ./
         with:

@@ -17,6 +17,40 @@ export type RunCheck = {
   items?: RunItem[]
 }
 
+export type RunCoverageMetric = {
+  covered: number
+  total: number
+  percent: number
+}
+
+export type RunCoverageMetricsMap = {
+  line?: RunCoverageMetric
+  branch?: RunCoverageMetric
+  function?: RunCoverageMetric
+}
+
+export type RunMetadata = {
+  traceability?: {
+    requirement_ids?: string[]
+    spec_ids?: string[]
+    risk_ids?: string[]
+    commit_message?: string
+  }
+  provenance?: {
+    artifacts?: Array<{
+      path?: string
+      role?: string
+      sha256?: string
+      size_bytes?: number
+      mime_type?: string
+    }>
+  }
+  coverage?: {
+    overall?: RunCoverageMetricsMap
+    per_check?: Record<string, RunCoverageMetricsMap>
+  }
+}
+
 export type RunRecord = {
   v: number
   run_id: string
@@ -26,6 +60,7 @@ export type RunRecord = {
   branch: string
   timestamp: string
   matrix?: Record<string, string>
+  metadata?: RunMetadata
   checks: RunCheck[]
 }
 

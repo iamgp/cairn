@@ -49,6 +49,9 @@ Cairn keeps a long-running quality history for your repository and publishes a r
 2. Adjust checker inputs in ` + "`cairn.toml`" + ` to match your CI artifact names.
 3. Commit the scaffolded files.
 4. Run your CI workflow. Use ` + "`cairn collect`" + ` to build a run record from checker outputs.
+   Phase-2 evidence can be attached with ` + "`--requirement-id`" + `, ` + "`--artifact`" + `, and ` + "`--coverage`" + `.
+   Keep regulated provenance via ` + "`--tool-version`" + ` and ` + "`--dependency-hash`" + `.
+   Coverage reports can be ingested with ` + "`--coverage-file`" + ` (LCOV, Cobertura XML, JaCoCo XML).
 5. Feed that run record into the Cairn GitHub Action to append history and publish the report.
 
 ## cairn.toml Reference
@@ -116,7 +119,14 @@ Copy and adapt this workflow for your repository:
                 --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
                 --sha-full "${{ github.sha }}" \
                 --branch "${{ github.ref_name }}" \
-                --matrix "python=${{ matrix.python-version }}"
+                --matrix "python=${{ matrix.python-version }}" \
+                --requirement-id "REQ-PY-TESTS-001" \
+                --artifact "pytest=pytest-${{ matrix.python-version }}.xml" \
+                --artifact "ruff=ruff-results.json" \
+                --coverage "overall:line=924/1000" \
+                --tool-version "python=${{ matrix.python-version }}" \
+                --tool-version "ruff=latest" \
+                --dependency-hash "requirements.txt=${{ hashFiles('requirements*.txt') }}"
           - uses: actions/upload-artifact@v4
             with:
               name: cairn-run-${{ matrix.python-version }}
@@ -241,7 +251,14 @@ jobs:
             --run-id "${{ github.run_id }}-${{ matrix.python-version }}" \
             --sha-full "${{ github.sha }}" \
             --branch "${{ github.ref_name }}" \
-            --matrix "python=${{ matrix.python-version }}"
+            --matrix "python=${{ matrix.python-version }}" \
+            --requirement-id "REQ-PY-TESTS-001" \
+            --artifact "pytest=pytest-${{ matrix.python-version }}.xml" \
+            --artifact "ruff=ruff-results.json" \
+            --coverage "overall:line=924/1000" \
+            --tool-version "python=${{ matrix.python-version }}" \
+            --tool-version "ruff=latest" \
+            --dependency-hash "requirements.txt=${{ hashFiles('requirements*.txt') }}"
       - uses: actions/upload-artifact@v4
         with:
           name: cairn-run-${{ matrix.python-version }}
