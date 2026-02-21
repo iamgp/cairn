@@ -25,6 +25,10 @@ inputs:
     description: "Optional subdirectory under gh-pages to publish into (for example: previews/pr-123)"
     required: false
     default: ""
+  deploy-pages:
+    description: "Whether to deploy GitHub Pages after ingest/build (requires pages + id-token permissions)"
+    required: false
+    default: "true"
 
 runs:
   using: "composite"
@@ -192,6 +196,7 @@ runs:
         fi
 
     - name: Commit and push gh-pages changes
+      id: commit-pages
       shell: bash
       run: |
         set -euo pipefail
@@ -204,8 +209,24 @@ runs:
 
         if git diff --cached --quiet; then
           echo "No gh-pages changes to commit"
+          echo "changed=false" >> "${GITHUB_OUTPUT}"
           exit 0
         fi
 
         git commit -m "${{ inputs.commit-message }}"
         git push origin "HEAD:${{ inputs.gh-pages-branch }}"
+        echo "changed=true" >> "${GITHUB_OUTPUT}"
+
+    - name: Configure Pages
+      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      uses: actions/configure-pages@v5
+
+    - name: Upload Pages artifact
+      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: gh-pages
+
+    - name: Deploy Pages
+      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      uses: actions/deploy-pages@v4
