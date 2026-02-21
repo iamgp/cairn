@@ -152,3 +152,61 @@ func TestRenderPRCommentNoChecks(t *testing.T) {
 	}
 	assertContains(t, content, "No checks were recorded for this run.")
 }
+
+func TestRenderPRCommentWithRegulatedMetadata(t *testing.T) {
+	t.Parallel()
+
+	run := Run{
+		RunID:   "run-metadata",
+		SHAFull: "abcdef1234567",
+		Checks: []Check{
+			{
+				Tool:   "pytest",
+				Status: "passed",
+				Items: []Item{
+					{ID: "test_a", Status: "passed"},
+				},
+			},
+		},
+		Metadata: &RunMetadata{
+			Traceability: &RunTraceabilityMetadata{
+				RequirementIDs: []string{"REQ-1"},
+				SpecIDs:        []string{"SPEC-7"},
+				RiskIDs:        []string{"RISK-2"},
+				CommitMessage:  "feat: regulated metadata",
+			},
+			Provenance: &RunProvenanceMetadata{
+				Artifacts: []RunProvenanceArtifact{
+					{
+						Role:      "pytest",
+						Path:      "demo-artifacts/pytest-junit.xml",
+						SHA256:    "abc123",
+						SizeBytes: 1234,
+					},
+				},
+			},
+			Coverage: &RunCoverageMetadata{
+				Overall: &RunCoverageMetricsMap{
+					Line: &RunCoverageMetric{Covered: 90, Total: 100, Percent: 90},
+				},
+				PerCheck: map[string]RunCoverageMetricsMap{
+					"pytest": {
+						Function: &RunCoverageMetric{Covered: 5, Total: 10, Percent: 50},
+					},
+				},
+			},
+		},
+	}
+
+	content := renderPRComment(run, "", nil)
+	assertContains(t, content, "#### Traceability")
+	assertContains(t, content, "- Requirements: `REQ-1`")
+	assertContains(t, content, "- Specs: `SPEC-7`")
+	assertContains(t, content, "- Risks: `RISK-2`")
+	assertContains(t, content, "- Commit message: feat: regulated metadata")
+	assertContains(t, content, "#### Artifact Provenance")
+	assertContains(t, content, "| pytest | demo-artifacts/pytest-junit.xml | abc123 | 1234 bytes |")
+	assertContains(t, content, "#### Coverage")
+	assertContains(t, content, "| overall | 90/100 (90.0%) | - | - |")
+	assertContains(t, content, "| pytest | - | - | 5/10 (50.0%) |")
+}

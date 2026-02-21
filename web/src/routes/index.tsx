@@ -1,102 +1,31 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMemo, useState, type ReactNode } from 'react'
-import { createColumnHelper } from '@tanstack/react-table'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DataTable } from '../components/data-table'
+import { runTableColumns } from '../components/run-table-columns'
 import {
   defaultFilters,
   filterRuns,
-  runDuration,
   runStatus,
   useHistoryRuns,
   useRunOptions,
   type RunFilters,
-  type RunRecord,
 } from '../lib/history'
-import { relativeTime } from '../lib/utils'
 
-function statusDot(status: string): string {
-  if (status === 'passed') return 'bg-emerald-500'
-  if (status === 'failed' || status === 'error') return 'bg-rose-500'
-  if (status === 'skipped') return 'bg-amber-500'
-  return 'bg-gray-400'
-}
-
-const col = createColumnHelper<RunRecord>()
-
-const columns = [
-  col.accessor('run_id', {
-    header: 'Run',
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 dark:text-gray-100">{row.original.run_id}</span>
-        {row.original.pr != null && (
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">PR #{row.original.pr}</span>
-        )}
-      </div>
-    ),
+export const Route = createFileRoute('/')({
+  validateSearch: (search) => ({
+    group: typeof search.group === 'string' ? search.group : '',
   }),
-  col.accessor('branch', {
-    header: 'Branch',
-    size: 90,
-    cell: ({ getValue }) => (
-      <span className="text-gray-500 dark:text-gray-400 font-mono">{getValue() || '-'}</span>
-    ),
-  }),
-  col.accessor((row) => runStatus(row), {
-    id: 'status',
-    header: 'Status',
-    size: 80,
-    cell: ({ getValue }) => {
-      const s = getValue()
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${statusDot(s)}`} />
-          <span className="text-gray-600 dark:text-gray-400 capitalize">{s}</span>
-        </span>
-      )
-    },
-  }),
-  col.display({
-    id: 'checkers',
-    header: 'Checkers',
-    size: 120,
-    cell: ({ row }) => (
-      <div className="flex gap-1">
-        {(row.original.checks || []).map((c) => (
-          <span key={c.tool} className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            c.status === 'passed' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-            : ['failed','error'].includes(c.status) ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'
-            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-          }`}>{c.tool}</span>
-        ))}
-      </div>
-    ),
-  }),
-  col.accessor((row) => runDuration(row), {
-    id: 'duration',
-    header: 'Duration',
-    size: 70,
-    cell: ({ getValue }) => (
-      <span className="text-gray-500 dark:text-gray-400 font-mono text-right block">{getValue().toFixed(1)}s</span>
-    ),
-  }),
-  col.accessor('timestamp', {
-    header: 'Time',
-    size: 90,
-    cell: ({ getValue }) => (
-      <span className="text-gray-400 dark:text-gray-500 text-right block">{relativeTime(getValue())}</span>
-    ),
-  }),
-]
-
-export const Route = createFileRoute('/')({ component: OverviewPage })
+  component: OverviewPage,
+})
 
 function OverviewPage() {
   const { runs, loading, error } = useHistoryRuns()
   const navigate = useNavigate()
+  const search = Route.useSearch()
   const [filters, setFilters] = useState(defaultFilters)
-  const options = useRunOptions(runs)
-  const filtered = useMemo(() => filterRuns(runs, filters), [runs, filters])
+  const mainRuns = useMemo(() => runs.filter((run) => run.pr == null), [runs])
+  const options = useRunOptions(mainRuns)
+  const filtered = useMemo(() => filterRuns(mainRuns, filters), [mainRuns, filters])
 
   const summary = useMemo(() => {
     const total = filtered.length
@@ -106,12 +35,15 @@ function OverviewPage() {
     return { total, passed, failed, skipped }
   }, [filtered])
 
-  const needsAttention = useMemo(
-    () => filtered.filter((run) => ['failed', 'error'].includes(runStatus(run))).slice(0, 6),
-    [filtered],
-  )
-
   const hasActiveFilters = filters.query !== '' || filters.status !== 'any' || filters.checker !== 'any' || filters.branch !== 'any' || filters.pr !== 'any'
+
+  useEffect(() => {
+    if (search.group === 'failed') {
+      setFilters((prev) => ({ ...prev, status: 'failed_or_error' }))
+      return
+    }
+    setFilters((prev) => ({ ...prev, status: 'any' }))
+  }, [search.group])
 
   if (loading) return <InfoState tone="neutral">Loading history...</InfoState>
   if (error) return <InfoState tone="danger">Failed to load history: {error}</InfoState>
@@ -125,7 +57,7 @@ function OverviewPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Overview</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Main Branch</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{summary.total} runs found</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -140,7 +72,6 @@ function OverviewPage() {
           </span>
         </div>
       </div>
-
       {/* Metric Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label="Runs" value={summary.total} />
@@ -148,20 +79,6 @@ function OverviewPage() {
         <MetricCard label="Failed / Error" value={summary.failed} tone="rose" />
         <MetricCard label="Skipped" value={summary.skipped} tone="amber" />
       </div>
-
-      {/* Needs Attention */}
-      {needsAttention.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
-            <span className="text-amber-500">⚠</span> Needs Attention ({needsAttention.length} runs with failures)
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {needsAttention.map((run) => (
-              <NeedsAttentionCard key={`${run.run_id}-${run.timestamp}`} run={run} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -178,7 +95,14 @@ function OverviewPage() {
           />
         </div>
         <FilterSelect value={filters.status} onChange={(v) => updateFilter('status', v)}
-          options={[{ value: 'any', label: 'Status' }, { value: 'passed', label: 'Passed' }, { value: 'failed', label: 'Failed' }, { value: 'error', label: 'Error' }, { value: 'skipped', label: 'Skipped' }]} />
+          options={[
+            { value: 'any', label: 'Status' },
+            { value: 'failed_or_error', label: 'Failed / Error' },
+            { value: 'passed', label: 'Passed' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'error', label: 'Error' },
+            { value: 'skipped', label: 'Skipped' },
+          ]} />
         <FilterSelect value={filters.checker} onChange={(v) => updateFilter('checker', v)}
           options={options.checkers.map((c) => ({ value: c, label: c === 'any' ? 'Checker' : c }))} />
         <FilterSelect value={filters.branch} onChange={(v) => updateFilter('branch', v)}
@@ -197,43 +121,12 @@ function OverviewPage() {
 
       {/* Table */}
       <DataTable
-        columns={columns}
+        columns={runTableColumns}
         data={filtered}
         pageSize={50}
         onRowClick={(run) => navigate({ to: '/run', search: { run: run.run_id } })}
       />
     </div>
-  )
-}
-
-function NeedsAttentionCard({ run }: { run: RunRecord }) {
-  const status = runStatus(run)
-  const failedChecks = (run.checks || []).filter((c) => ['failed', 'error'].includes(c.status?.toLowerCase()))
-
-  return (
-    <Link
-      to="/run"
-      search={{ run: run.run_id }}
-      className="block border border-rose-200 dark:border-rose-800/50 rounded-lg bg-rose-50/50 dark:bg-rose-950/20 p-4 hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-sm transition-all"
-    >
-      <div className="flex items-start justify-between mb-1.5">
-        <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{run.run_id}</span>
-        <span className="text-xs px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-400 rounded-full flex-shrink-0 ml-2">
-          {status}
-        </span>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {failedChecks.map((check) => (
-          <span key={check.tool} className="text-[10px] px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 rounded">
-            {check.tool}: {check.status}
-          </span>
-        ))}
-      </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        {run.branch || 'No branch'} · {run.checks?.length ?? 0} checks
-      </p>
-      <p className="text-xs text-gray-400 dark:text-gray-500">{relativeTime(run.timestamp)}</p>
-    </Link>
   )
 }
 

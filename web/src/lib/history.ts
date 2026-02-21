@@ -17,6 +17,62 @@ export type RunCheck = {
   items?: RunItem[]
 }
 
+export type RunCoverageMetric = {
+  covered: number
+  total: number
+  percent: number
+}
+
+export type RunCoverageMetricsMap = {
+  line?: RunCoverageMetric
+  branch?: RunCoverageMetric
+  function?: RunCoverageMetric
+}
+
+export type RunMetadata = {
+  environment?: {
+    ci?: boolean
+    provider?: string
+    repository?: string
+    workflow?: string
+    job?: string
+    runner_os?: string
+    runner_arch?: string
+    runner_name?: string
+  }
+  actor?: {
+    login?: string
+    id?: string
+    triggering_login?: string
+    committer_name?: string
+    committer_email?: string
+  }
+  reproducibility?: {
+    tool_versions?: Record<string, string>
+    dependency_hashes?: Record<string, string>
+    config_sha256?: string
+  }
+  traceability?: {
+    requirement_ids?: string[]
+    spec_ids?: string[]
+    risk_ids?: string[]
+    commit_message?: string
+  }
+  provenance?: {
+    artifacts?: Array<{
+      path?: string
+      role?: string
+      sha256?: string
+      size_bytes?: number
+      mime_type?: string
+    }>
+  }
+  coverage?: {
+    overall?: RunCoverageMetricsMap
+    per_check?: Record<string, RunCoverageMetricsMap>
+  }
+}
+
 export type RunRecord = {
   v: number
   run_id: string
@@ -26,6 +82,7 @@ export type RunRecord = {
   branch: string
   timestamp: string
   matrix?: Record<string, string>
+  metadata?: RunMetadata
   checks: RunCheck[]
 }
 
@@ -134,7 +191,8 @@ export function filterRuns(runs: RunRecord[], filters: RunFilters) {
 
   return runs.filter((run) => {
     const status = runStatus(run)
-    if (filters.status !== 'any' && status !== filters.status) return false
+    if (filters.status === 'failed_or_error' && status !== 'failed' && status !== 'error') return false
+    if (filters.status !== 'any' && filters.status !== 'failed_or_error' && status !== filters.status) return false
     if (filters.branch !== 'any' && run.branch !== filters.branch) return false
     if (filters.pr !== 'any' && String(run.pr ?? '') !== filters.pr) return false
     if (filters.checker !== 'any' && !(run.checks || []).some((c) => c.tool === filters.checker)) {

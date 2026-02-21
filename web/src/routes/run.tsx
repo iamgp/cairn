@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StatusBadge } from '../components/status-badge'
 import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunItem, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
@@ -7,6 +7,7 @@ import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 export const Route = createFileRoute('/run')({
   validateSearch: (search) => ({
     run: typeof search.run === 'string' ? search.run : '',
+    sha: typeof search.sha === 'string' ? search.sha : '',
   }),
   component: RunsPage,
 })
@@ -20,7 +21,11 @@ function RunsPage() {
   if (!runs.length) return <InfoState tone="neutral">No runs available yet.</InfoState>
 
   if (search.run) {
-    const run = runs.find((r) => r.run_id === search.run)
+    const run = runs.find((r) => {
+      if (r.run_id !== search.run) return false
+      if (!search.sha) return true
+      return (r.sha_full || r.sha) === search.sha
+    })
     if (run) return <RunDetailPage run={run} allRuns={runs} />
   }
 
@@ -167,9 +172,48 @@ function formatDuration(seconds?: number): string {
   return `${m}m ${s}s`
 }
 
+function formatCoverageMetric(metric?: { covered: number; total: number; percent: number }): string {
+  if (!metric) return '-'
+  return `${metric.covered}/${metric.total} (${metric.percent.toFixed(1)}%)`
+}
+
 function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) {
   const status = runStatus(run)
   const checks = run.checks || []
+  const environment = run.metadata?.environment
+  const actor = run.metadata?.actor
+  const reproducibility = run.metadata?.reproducibility
+  const traceability = run.metadata?.traceability
+  const artifacts = run.metadata?.provenance?.artifacts || []
+  const overallCoverage = run.metadata?.coverage?.overall
+  const perCheckCoverage = run.metadata?.coverage?.per_check || {}
+  const perCheckCoverageRows = Object.entries(perCheckCoverage).sort(([a], [b]) => a.localeCompare(b))
+  const toolVersions = Object.entries(reproducibility?.tool_versions || {}).sort(([a], [b]) => a.localeCompare(b))
+  const dependencyHashes = Object.entries(reproducibility?.dependency_hashes || {}).sort(([a], [b]) => a.localeCompare(b))
+  const hasEnvironment = Boolean(
+    environment?.provider ||
+    environment?.repository ||
+    environment?.workflow ||
+    environment?.job ||
+    environment?.runner_os ||
+    environment?.runner_arch ||
+    environment?.runner_name,
+  )
+  const hasActor = Boolean(
+    actor?.login ||
+    actor?.triggering_login ||
+    actor?.committer_name ||
+    actor?.committer_email,
+  )
+  const hasReproducibility = Boolean(toolVersions.length > 0 || dependencyHashes.length > 0 || reproducibility?.config_sha256)
+  const hasTraceability = Boolean(
+    traceability?.commit_message ||
+    (traceability?.requirement_ids && traceability.requirement_ids.length > 0) ||
+    (traceability?.spec_ids && traceability.spec_ids.length > 0) ||
+    (traceability?.risk_ids && traceability.risk_ids.length > 0),
+  )
+  const hasProvenance = artifacts.length > 0
+  const hasCoverage = Boolean(overallCoverage || perCheckCoverageRows.length > 0)
 
   const allItems = useMemo(() => {
     const items: { checker: string; item: RunItem; index: number }[] = []
@@ -196,6 +240,19 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
   const [statusFilter, setStatusFilter] = useState('all')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    if (selected || checks.length === 0) return
+    for (const check of checks) {
+      const failIndex = (check.items || []).findIndex((item) => ['failed', 'error'].includes((item.status || '').toLowerCase()))
+      if (failIndex >= 0) {
+        setSelected({ checker: check.tool, index: failIndex })
+        return
+      }
+    }
+    const firstWithItems = checks.find((check) => (check.items || []).length > 0)
+    if (firstWithItems) setSelected({ checker: firstWithItems.tool, index: 0 })
+  }, [selected, checks])
 
   const selectedItem = useMemo(() => {
     if (!selected) return null
@@ -255,16 +312,27 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Back link */}
-      <Link
-        to="/run"
-        search={{ run: '' }}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-        </svg>
-        All Runs
-      </Link>
+      {run.pr != null ? (
+        <Link
+          to="/pr"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Back to Pull Requests
+        </Link>
+      ) : (
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Back to Main Branch
+        </Link>
+      )}
 
       {/* Header */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -296,6 +364,153 @@ function RunDetailPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] 
           </span>
         ))}
       </div>
+
+      {(hasTraceability || hasProvenance || hasCoverage || hasEnvironment || hasActor || hasReproducibility) && (
+        <div className="mb-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          {hasEnvironment && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Environment</h2>
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p>Provider: <span className="font-medium">{environment?.provider || '-'}</span></p>
+                <p>Repository: <span className="font-medium">{environment?.repository || '-'}</span></p>
+                <p>Workflow: <span className="font-medium">{environment?.workflow || '-'}</span></p>
+                <p>Job: <span className="font-medium">{environment?.job || '-'}</span></p>
+                <p>Runner: <span className="font-medium">{environment?.runner_os || '-'} / {environment?.runner_arch || '-'}</span></p>
+                {environment?.runner_name && <p>Name: <span className="font-medium">{environment.runner_name}</span></p>}
+              </div>
+            </section>
+          )}
+
+          {hasActor && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Actor</h2>
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p>Triggered by: <span className="font-medium">{actor?.triggering_login || actor?.login || '-'}</span></p>
+                <p>Actor: <span className="font-medium">{actor?.login || '-'}</span></p>
+                {actor?.id && <p>Actor ID: <span className="font-mono">{actor.id}</span></p>}
+                {actor?.committer_name && <p>Committer: <span className="font-medium">{actor.committer_name}</span></p>}
+                {actor?.committer_email && <p>Email: <span className="font-mono">{actor.committer_email}</span></p>}
+              </div>
+            </section>
+          )}
+
+          {hasReproducibility && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Reproducibility</h2>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                {toolVersions.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-gray-500 dark:text-gray-400">Tool Versions</p>
+                    <div className="flex flex-wrap gap-1">
+                      {toolVersions.map(([tool, version]) => (
+                        <span key={`tool-${tool}`} className="rounded-full bg-gray-100 px-2 py-0.5 font-mono text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                          {tool}={version}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dependencyHashes.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-gray-500 dark:text-gray-400">Dependency Hashes</p>
+                    <div className="space-y-1">
+                      {dependencyHashes.slice(0, 3).map(([name, hash]) => (
+                        <p key={`dep-${name}`} className="font-mono text-gray-500 dark:text-gray-400 truncate">{name}: {hash}</p>
+                      ))}
+                      {dependencyHashes.length > 3 && <p className="text-gray-500 dark:text-gray-400">+{dependencyHashes.length - 3} more</p>}
+                    </div>
+                  </div>
+                )}
+                {reproducibility?.config_sha256 && (
+                  <p className="font-mono text-gray-500 dark:text-gray-400 truncate">config_sha256: {reproducibility.config_sha256}</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {hasTraceability && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Traceability</h2>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-300">
+                {traceability?.commit_message && (
+                  <p className="break-words">
+                    <span className="text-gray-500 dark:text-gray-400">Commit:</span>{' '}
+                    <span className="font-medium">{traceability.commit_message}</span>
+                  </p>
+                )}
+                {(traceability?.requirement_ids || []).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(traceability?.requirement_ids || []).map((id) => (
+                      <span key={`req-${id}`} className="rounded-full bg-blue-100 px-2 py-0.5 font-mono text-blue-700 dark:bg-blue-950 dark:text-blue-300">{id}</span>
+                    ))}
+                  </div>
+                )}
+                {(traceability?.spec_ids || []).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(traceability?.spec_ids || []).map((id) => (
+                      <span key={`spec-${id}`} className="rounded-full bg-indigo-100 px-2 py-0.5 font-mono text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{id}</span>
+                    ))}
+                  </div>
+                )}
+                {(traceability?.risk_ids || []).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(traceability?.risk_ids || []).map((id) => (
+                      <span key={`risk-${id}`} className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-rose-700 dark:bg-rose-950 dark:text-rose-300">{id}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {hasProvenance && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Provenance</h2>
+              <div className="space-y-2">
+                {artifacts.slice(0, 4).map((artifact, index) => (
+                  <div key={`${artifact.path || 'artifact'}-${index}`} className="rounded border border-gray-200 dark:border-gray-800 p-2 text-xs">
+                    <p className="font-medium text-gray-800 dark:text-gray-100">{artifact.role || 'artifact'}</p>
+                    <p className="font-mono text-gray-500 dark:text-gray-400 truncate">{artifact.path || '-'}</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {(artifact.size_bytes ?? 0).toLocaleString()} bytes
+                      {artifact.mime_type ? ` · ${artifact.mime_type}` : ''}
+                    </p>
+                    {artifact.sha256 && (
+                      <p className="font-mono text-gray-500 dark:text-gray-400 truncate">sha256:{artifact.sha256}</p>
+                    )}
+                  </div>
+                ))}
+                {artifacts.length > 4 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">+{artifacts.length - 4} more artifacts</p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {hasCoverage && (
+            <section className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Coverage</h2>
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p>Line: <span className="font-medium">{formatCoverageMetric(overallCoverage?.line)}</span></p>
+                <p>Branch: <span className="font-medium">{formatCoverageMetric(overallCoverage?.branch)}</span></p>
+                <p>Function: <span className="font-medium">{formatCoverageMetric(overallCoverage?.function)}</span></p>
+                {perCheckCoverageRows.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-800 space-y-1">
+                    {perCheckCoverageRows.slice(0, 4).map(([checkID, metrics]) => (
+                      <p key={checkID}>
+                        <span className="font-mono text-gray-500 dark:text-gray-400">{checkID}</span>: {formatCoverageMetric(metrics.line || metrics.branch || metrics.function)}
+                      </p>
+                    ))}
+                    {perCheckCoverageRows.length > 4 && (
+                      <p className="text-gray-500 dark:text-gray-400">+{perCheckCoverageRows.length - 4} more checks</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       {/* Matrix Grid */}
       {matrixGrid && (

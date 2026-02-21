@@ -37,8 +37,10 @@ func appendRunRecord(pagesDir string, run Run) error {
 }
 
 func validateRunSchemaVersion(version int) error {
-	if version != runSchemaVersion {
-		return fmt.Errorf("unsupported run schema version %d, expected %d", version, runSchemaVersion)
+	switch version {
+	case 1, 2:
+		return nil
+	default:
+		return fmt.Errorf("unsupported run schema version %d, expected one of [1 2]", version)
 	}
-	return nil
 }

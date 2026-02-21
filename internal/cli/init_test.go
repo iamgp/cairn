@@ -43,6 +43,18 @@ func TestInitCommandScaffoldsDefaults(t *testing.T) {
 	if string(readme) != defaultReadme {
 		t.Fatalf("unexpected README.md contents:\n%s", string(readme))
 	}
+	if !strings.Contains(string(readme), "--requirement-id") {
+		t.Fatalf("expected README.md to include --requirement-id example")
+	}
+	if !strings.Contains(string(readme), "--artifact") {
+		t.Fatalf("expected README.md to include --artifact example")
+	}
+	if !strings.Contains(string(readme), "--coverage") {
+		t.Fatalf("expected README.md to include --coverage example")
+	}
+	if !strings.Contains(string(readme), "--coverage-file") {
+		t.Fatalf("expected README.md to include --coverage-file mention")
+	}
 
 	adapters, err := os.ReadFile(filepath.Join(dir, "docs", "adapters.md"))
 	if err != nil {
@@ -58,6 +70,12 @@ func TestInitCommandScaffoldsDefaults(t *testing.T) {
 	}
 	if string(workflow) != defaultCairnWorkflow {
 		t.Fatalf("unexpected workflow contents:\n%s", string(workflow))
+	}
+	if !strings.Contains(string(workflow), "collect-config: cairn.toml") {
+		t.Fatalf("expected workflow to use collect-config")
+	}
+	if !strings.Contains(string(workflow), "--matrix python=3.12") {
+		t.Fatalf("expected workflow to include matrix collect args")
 	}
 }
 
