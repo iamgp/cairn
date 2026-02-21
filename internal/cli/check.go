@@ -22,8 +22,9 @@ type checkOptions struct {
 
 func newCheckCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "check",
-		Short: "Check pass rate against a threshold",
+		Use:                "check",
+		Short:              "Check pass rate against a threshold",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts, err := parseCheckCommandArgs(args)
 			if errors.Is(err, errCheckNoInput) {

@@ -29,8 +29,9 @@ type pruneResult struct {
 
 func newPruneCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "prune",
-		Short: "Prune obsolete data",
+		Use:                "prune",
+		Short:              "Prune obsolete data",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts, err := parsePruneCommandArgs(args)
 			if errors.Is(err, errPruneNoPagesDir) {

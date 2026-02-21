@@ -220,8 +220,9 @@ jobs:
 
 func newInitCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "init",
-		Short: "Initialize cairn workspace state",
+		Use:                "init",
+		Short:              "Initialize cairn workspace state",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("init does not accept arguments")

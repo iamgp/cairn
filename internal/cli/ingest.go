@@ -14,8 +14,9 @@ var errIngestNoInput = errors.New("ingest requires an input path")
 
 func newIngestCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ingest",
-		Short: "Ingest data into cairn",
+		Use:                "ingest",
+		Short:              "Ingest data into cairn",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			inputPath, pagesDir, err := parseIngestCommandArgs(args)
 			if errors.Is(err, errIngestNoInput) {

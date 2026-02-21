@@ -76,8 +76,9 @@ type collectCoverageFileInput struct {
 
 func newCollectCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "collect",
-		Short: "Collect checker outputs into a run-record JSON",
+		Use:                "collect",
+		Short:              "Collect checker outputs into a run-record JSON",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts, err := parseCollectCommandArgs(args)
 			if err != nil {

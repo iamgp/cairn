@@ -24,8 +24,9 @@ type commentOptions struct {
 
 func newCommentCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "comment",
-		Short: "Render a PR comment from a run record",
+		Use:                "comment",
+		Short:              "Render a PR comment from a run record",
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts, err := parseCommentCommandArgs(args)
 			if errors.Is(err, errCommentNoInput) {
