@@ -35,7 +35,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
     <tbody
       data-slot="table-body"
       className={cn(
-        "relative top-[-20px] [&_tr:first-child_td]:border-t [&_tr:first-child_td]:border-t-[#EDEDED] [&_tr:first-child_td:first-child]:rounded-tl-[26px] [&_tr:first-child_td:last-child]:rounded-tr-[26px] [&_tr:last-child_td:first-child]:rounded-bl-[26px] [&_tr:last-child_td:last-child]:rounded-br-[26px]",
+        "relative top-[-20px] [&_tr:first-child_td]:border-t [&_tr:first-child_td]:border-t-[var(--wf-card-border)] [&_tr:first-child_td:first-child]:rounded-tl-[26px] [&_tr:first-child_td:last-child]:rounded-tr-[26px] [&_tr:last-child_td:first-child]:rounded-bl-[26px] [&_tr:last-child_td:last-child]:rounded-br-[26px]",
         className,
       )}
       {...props}
@@ -74,7 +74,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "bg-[var(--wf-card-header-bg)] text-muted-foreground border-t border-r border-[#EDEDED] px-5 pt-[10px] pb-[30px] text-left align-middle text-sm font-medium whitespace-nowrap first:rounded-tl-[26px] first:border-l last:rounded-tr-[26px] [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "bg-[var(--wf-card-header-bg)] text-muted-foreground border-t border-r border-[var(--wf-card-header-border)] px-5 pt-[10px] pb-[30px] text-left align-middle text-sm font-medium whitespace-nowrap first:rounded-tl-[26px] first:border-l last:rounded-tr-[26px] [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}
@@ -87,7 +87,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "bg-[var(--wf-card-bg)] px-5 py-3.5 align-middle whitespace-nowrap text-sm border-r border-b border-[#EDEDED] first:border-l [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "bg-[var(--wf-card-bg)] px-5 py-3.5 align-middle whitespace-nowrap text-sm border-r border-b border-[var(--wf-card-border)] first:border-l [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}
