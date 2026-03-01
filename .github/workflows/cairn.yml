@@ -83,3 +83,4 @@ jobs:
           collect-config: demo/uv-demo/cairn.toml
           collect-args: >-
             --matrix python=3.12
+          deploy-pages: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}

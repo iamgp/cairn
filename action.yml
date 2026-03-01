@@ -410,17 +410,17 @@ runs:
         echo "changed=true" >> "${GITHUB_OUTPUT}"
 
     - name: Configure Pages
-      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      if: ${{ inputs.deploy-pages == 'true' }}
       uses: actions/configure-pages@v5
 
     - name: Upload Pages artifact
-      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      if: ${{ inputs.deploy-pages == 'true' }}
       uses: actions/upload-pages-artifact@v3
       with:
         path: gh-pages
 
     - name: Deploy Pages
-      if: ${{ inputs.deploy-pages == 'true' && steps.commit-pages.outputs.changed == 'true' }}
+      if: ${{ inputs.deploy-pages == 'true' }}
       uses: actions/deploy-pages@v4
 
     - name: Render PR comment
