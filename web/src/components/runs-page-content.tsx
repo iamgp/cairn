@@ -66,7 +66,7 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
         <SummaryCard label="Skipped" value={summary.skipped} tone="warning" />
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-4">
+      <section>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <input
             type="text"

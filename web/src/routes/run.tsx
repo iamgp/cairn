@@ -168,6 +168,8 @@ function CheckReportSection({ check }: { check: RunCheck }) {
   const skippedCount = items.filter(i => (i.status || '').toLowerCase() === 'skipped').length
   const durationLabel =
     typeof check.duration_s === 'number' ? ` (${check.duration_s.toFixed(3)}s)` : ''
+  const grouped = groupCheckItems(check.tool, items)
+  const showGrouped = grouped.length > 1
 
   return (
     <div className="mt-8">
@@ -177,62 +179,123 @@ function CheckReportSection({ check }: { check: RunCheck }) {
       </p>
 
       {items.length > 0 ? (
-        <div className="overflow-hidden rounded-[26px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20 font-semibold text-foreground">Status</TableHead>
-                <TableHead className="font-semibold text-foreground">Test</TableHead>
-                <TableHead className="w-24 font-semibold text-foreground">Duration</TableHead>
-                <TableHead className="font-semibold text-foreground">Message</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item, idx) => {
-                const s = (item.status || '').toLowerCase()
-                const isPassed = s === 'passed'
-                const isFailed = s === 'failed' || s === 'error'
-                const isSkipped = s === 'skipped'
-
-                return (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      {isPassed && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
-                          <Check className="size-3" strokeWidth={2.5} />
-                          Pass
-                        </span>
-                      )}
-                      {isFailed && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
-                          <X className="size-3" strokeWidth={2.5} />
-                          Fail
-                        </span>
-                      )}
-                      {isSkipped && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
-                          <Clock className="size-3" strokeWidth={2.5} />
-                          Skip
-                        </span>
-                      )}
-                      {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{s}</span>}
-                    </TableCell>
-                    <TableCell className="font-mono text-foreground">{item.id}</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
-                      {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
-                    </TableCell>
-                    <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        showGrouped ? (
+          <div className="space-y-5">
+            {grouped.map((group) => (
+              <div key={group.name}>
+                <p className="mb-2 font-mono text-sm text-muted-foreground">{group.name}</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {group.passed} passed, {group.failed} failed, {group.skipped} skipped
+                </p>
+                <ItemTableRows items={group.items} trimScope={group.name} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <ItemTableRows items={items} />
+        )
       ) : (
         <p className="text-sm text-muted-foreground">No test items reported</p>
       )}
     </div>
   )
+}
+
+function ItemTableRows({
+  items,
+  trimScope,
+}: {
+  items: RunCheck['items']
+  trimScope?: string
+}) {
+  return (
+    <div className="overflow-hidden rounded-[26px]">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-20 font-semibold text-foreground">Status</TableHead>
+            <TableHead className="font-semibold text-foreground">Test</TableHead>
+            <TableHead className="w-24 font-semibold text-foreground">Duration</TableHead>
+            <TableHead className="font-semibold text-foreground">Message</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {(items || []).map((item, idx) => {
+            const s = (item.status || '').toLowerCase()
+            const isPassed = s === 'passed'
+            const isFailed = s === 'failed' || s === 'error'
+            const isSkipped = s === 'skipped'
+            const displayId = trimScope && item.id.startsWith(`${trimScope}::`)
+              ? item.id.slice(trimScope.length + 2)
+              : item.id
+
+            return (
+              <TableRow key={`${item.id}-${idx}`}>
+                <TableCell>
+                  {isPassed && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
+                      <Check className="size-3" strokeWidth={2.5} />
+                      Pass
+                    </span>
+                  )}
+                  {isFailed && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
+                      <X className="size-3" strokeWidth={2.5} />
+                      Fail
+                    </span>
+                  )}
+                  {isSkipped && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
+                      <Clock className="size-3" strokeWidth={2.5} />
+                      Skip
+                    </span>
+                  )}
+                  {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{s}</span>}
+                </TableCell>
+                <TableCell className="font-mono text-foreground">{displayId}</TableCell>
+                <TableCell className="font-mono text-muted-foreground">
+                  {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
+                </TableCell>
+                <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function groupCheckItems(tool: string, items: RunCheck['items']) {
+  const allItems = items || []
+  const groups = new Map<string, typeof allItems>()
+
+  for (const item of allItems) {
+    const key = resolveItemGroupKey(tool, item.id)
+    const list = groups.get(key) || []
+    list.push(item)
+    groups.set(key, list)
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, groupItems]) => {
+      const passed = groupItems.filter((i) => (i.status || '').toLowerCase() === 'passed').length
+      const failed = groupItems.filter((i) => ['failed', 'error'].includes((i.status || '').toLowerCase())).length
+      const skipped = groupItems.filter((i) => (i.status || '').toLowerCase() === 'skipped').length
+      return { name, items: groupItems, passed, failed, skipped }
+    })
+}
+
+function resolveItemGroupKey(tool: string, itemId: string): string {
+  if (!itemId) return '(unscoped)'
+  if (tool.toLowerCase() === 'pytest') {
+    const split = itemId.split('::')
+    if (split.length > 1) return split[0]
+  }
+  const slash = itemId.lastIndexOf('/')
+  if (slash > 0) return itemId.slice(0, slash)
+  return '(misc)'
 }
 
 const checkerColors = [
