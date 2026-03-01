@@ -1,67 +1,72 @@
 import { createColumnHelper } from '@tanstack/react-table'
+import { Check, Clock, X } from 'lucide-react'
 import { runDuration, runStatus, type RunRecord } from '../lib/history'
 import { relativeTime } from '../lib/utils'
 
-function statusDot(status: string): string {
-  if (status === 'passed') return 'bg-emerald-500'
-  if (status === 'failed' || status === 'error') return 'bg-rose-500'
-  if (status === 'skipped') return 'bg-amber-500'
-  return 'bg-gray-400'
-}
-
 const col = createColumnHelper<RunRecord>()
+
+function StatusBadge({ status }: { status: string }) {
+  const s = status.toLowerCase()
+
+  if (s === 'passed') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-muted px-2.5 py-1 text-xs font-medium text-success-foreground">
+        <Check className="size-3.5" strokeWidth={2.5} />
+        Passed
+      </span>
+    )
+  }
+
+  if (s === 'failed' || s === 'error') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive-muted px-2.5 py-1 text-xs font-medium text-destructive">
+        <X className="size-3.5" strokeWidth={2.5} />
+        {s === 'error' ? 'Error' : 'Failed'}
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-muted px-2.5 py-1 text-xs font-medium text-warning-foreground">
+      <Clock className="size-3.5" strokeWidth={2.5} />
+      Skipped
+    </span>
+  )
+}
 
 export const runTableColumns = [
   col.accessor('run_id', {
     header: 'Run',
+    size: 200,
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 dark:text-gray-100">{row.original.run_id}</span>
-        {row.original.pr != null && (
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">PR #{row.original.pr}</span>
-        )}
+        <span className="font-medium text-foreground">{row.original.run_id}</span>
+        {row.original.pr != null ? (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">PR #{row.original.pr}</span>
+        ) : null}
       </div>
     ),
   }),
   col.accessor('branch', {
     header: 'Branch',
-    size: 220,
-    cell: ({ getValue }) => (
-      <span className="font-mono whitespace-nowrap text-gray-500 dark:text-gray-400">{getValue() || '-'}</span>
-    ),
+    size: 180,
+    cell: ({ getValue }) => <span className="font-mono text-xs text-muted-foreground">{getValue() || '-'}</span>,
   }),
   col.accessor((row) => runStatus(row), {
     id: 'status',
     header: 'Status',
-    size: 80,
-    cell: ({ getValue }) => {
-      const s = getValue()
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className={`h-1.5 w-1.5 rounded-full ${statusDot(s)}`} />
-          <span className="capitalize text-gray-600 dark:text-gray-400">{s}</span>
-        </span>
-      )
-    },
+    size: 140,
+    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
   }),
   col.display({
     id: 'checkers',
-    header: 'Checkers',
-    size: 180,
+    header: 'Checks',
+    size: 260,
     cell: ({ row }) => (
-      <div className="flex gap-1">
-        {(row.original.checks || []).map((c) => (
-          <span
-            key={c.tool}
-            className={`inline-block whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium ${
-              c.status === 'passed'
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                : ['failed', 'error'].includes(c.status)
-                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-            }`}
-          >
-            {c.tool}
+      <div className="flex flex-wrap gap-1.5">
+        {(row.original.checks || []).map((check) => (
+          <span key={check.tool} className="rounded-full border border-border px-2 py-0.5 text-xs text-foreground">
+            {check.tool}
           </span>
         ))}
       </div>
@@ -70,18 +75,12 @@ export const runTableColumns = [
   col.accessor((row) => runDuration(row), {
     id: 'duration',
     header: 'Duration',
-    size: 70,
-    cell: ({ getValue }) => (
-      <span className="block text-right font-mono text-gray-500 dark:text-gray-400">
-        {getValue().toFixed(1)}s
-      </span>
-    ),
+    size: 100,
+    cell: ({ getValue }) => <span className="font-mono text-xs text-muted-foreground">{getValue().toFixed(1)}s</span>,
   }),
   col.accessor('timestamp', {
     header: 'Time',
-    size: 90,
-    cell: ({ getValue }) => (
-      <span className="block text-right text-gray-400 dark:text-gray-500">{relativeTime(getValue())}</span>
-    ),
+    size: 120,
+    cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{relativeTime(getValue())}</span>,
   }),
 ]
