@@ -76,6 +76,43 @@ function ReportPage({ run }: { run: RunRecord }) {
     return { passed, failed, skipped, total: passed + failed + skipped }
   }, [filteredChecks])
 
+  const metadata = useMemo(() => {
+    const env = run.metadata?.environment
+    const actor = run.metadata?.actor
+    const repro = run.metadata?.reproducibility
+    const cov = run.metadata?.coverage?.overall
+
+    const toolVersions = repro?.tool_versions
+      ? Object.entries(repro.tool_versions).map(([k, v]) => `${k}: ${v}`).join(', ')
+      : null
+
+    const matrix = run.matrix
+      ? Object.entries(run.matrix).map(([k, v]) => `${k}: ${v}`).join(', ')
+      : null
+
+    const coverage = cov
+      ? `${cov.line?.percent?.toFixed(1) || 0}%`
+      : null
+
+    return {
+      pr: run.pr,
+      branch: run.branch,
+      sha: run.sha?.slice(0, 7),
+      shaFull: run.sha_full,
+      timestamp: new Date(run.timestamp).toLocaleString(),
+      duration: runDuration(run).toFixed(2) + 's',
+      status,
+      triggeredBy: actor?.login || actor?.triggering_login || null,
+      provider: env?.provider || null,
+      runnerOs: env?.runner_os || null,
+      repository: env?.repository || null,
+      workflow: env?.workflow || null,
+      matrix,
+      toolVersions,
+      coverage,
+    }
+  }, [run])
+
   return (
     <div className="py-4">
       <div className="mb-8">
@@ -87,26 +124,34 @@ function ReportPage({ run }: { run: RunRecord }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-32">Field</TableHead>
-              <TableHead>Value</TableHead>
+              <TableHead className="font-semibold text-foreground w-32">Field</TableHead>
+              <TableHead className="font-semibold text-foreground">Value</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            {metadata.pr && (
+              <TableRow>
+                <TableCell className="w-40 font-medium text-muted-foreground">PR</TableCell>
+                <TableCell className="text-foreground">#{metadata.pr}</TableCell>
+              </TableRow>
+            )}
             <TableRow>
-              <TableCell className="w-32 font-medium text-muted-foreground">Branch</TableCell>
-              <TableCell className="text-foreground">{run.branch || '-'}</TableCell>
+              <TableCell className="w-40 font-medium text-muted-foreground">Branch</TableCell>
+              <TableCell className="text-foreground">{metadata.branch || '-'}</TableCell>
             </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-muted-foreground">Commit</TableCell>
-              <TableCell className="font-mono text-foreground">{run.sha?.slice(0, 7) || '-'}</TableCell>
-            </TableRow>
+            {metadata.shaFull && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Commit</TableCell>
+                <TableCell className="font-mono text-foreground text-sm">{metadata.shaFull}</TableCell>
+              </TableRow>
+            )}
             <TableRow>
               <TableCell className="font-medium text-muted-foreground">Date</TableCell>
-              <TableCell className="text-foreground">{new Date(run.timestamp).toLocaleDateString()}</TableCell>
+              <TableCell className="text-foreground">{metadata.timestamp}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell className="font-medium text-muted-foreground">Duration</TableCell>
-              <TableCell className="text-foreground">{runDuration(run).toFixed(2)}s</TableCell>
+              <TableCell className="text-foreground">{metadata.duration}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell className="font-medium text-muted-foreground">Status</TableCell>
@@ -114,6 +159,54 @@ function ReportPage({ run }: { run: RunRecord }) {
                 <StatusBadge status={status} />
               </TableCell>
             </TableRow>
+            {metadata.repository && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Repository</TableCell>
+                <TableCell className="text-foreground">{metadata.repository}</TableCell>
+              </TableRow>
+            )}
+            {metadata.workflow && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Workflow</TableCell>
+                <TableCell className="text-foreground">{metadata.workflow}</TableCell>
+              </TableRow>
+            )}
+            {metadata.triggeredBy && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Triggered By</TableCell>
+                <TableCell className="text-foreground">{metadata.triggeredBy}</TableCell>
+              </TableRow>
+            )}
+            {metadata.provider && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">CI Provider</TableCell>
+                <TableCell className="text-foreground">{metadata.provider}</TableCell>
+              </TableRow>
+            )}
+            {metadata.runnerOs && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Runner</TableCell>
+                <TableCell className="text-foreground">{metadata.runnerOs}</TableCell>
+              </TableRow>
+            )}
+            {metadata.matrix && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Matrix</TableCell>
+                <TableCell className="text-foreground">{metadata.matrix}</TableCell>
+              </TableRow>
+            )}
+            {metadata.toolVersions && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Tools</TableCell>
+                <TableCell className="text-foreground text-sm">{metadata.toolVersions}</TableCell>
+              </TableRow>
+            )}
+            {metadata.coverage && (
+              <TableRow>
+                <TableCell className="font-medium text-muted-foreground">Coverage</TableCell>
+                <TableCell className="text-foreground">{metadata.coverage}</TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
