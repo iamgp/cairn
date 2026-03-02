@@ -35,6 +35,19 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export const runTableColumns = [
+  col.accessor('timestamp', {
+    header: 'Time',
+    size: 180,
+    cell: ({ getValue }) => {
+      const ts = getValue()
+      return (
+        <div className="flex flex-col">
+          <span className="text-xs text-foreground">{new Date(ts).toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground">{relativeTime(ts)}</span>
+        </div>
+      )
+    },
+  }),
   col.accessor('run_id', {
     header: 'Run',
     size: 200,
@@ -77,10 +90,5 @@ export const runTableColumns = [
     header: 'Duration',
     size: 100,
     cell: ({ getValue }) => <span className="font-mono text-xs text-muted-foreground">{getValue().toFixed(1)}s</span>,
-  }),
-  col.accessor('timestamp', {
-    header: 'Time',
-    size: 120,
-    cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{relativeTime(getValue())}</span>,
   }),
 ]

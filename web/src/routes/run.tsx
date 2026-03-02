@@ -91,7 +91,11 @@ function ReportPage({ run }: { run: RunRecord }) {
       : null
 
     const coverage = cov
-      ? `${cov.line?.percent?.toFixed(1) || 0}%`
+      ? {
+          line: `${cov.line?.percent?.toFixed(1) || 0}% (${cov.line?.covered}/${cov.line?.total})`,
+          branch: cov.branch ? `${cov.branch.percent?.toFixed(1) || 0}% (${cov.branch.covered}/${cov.branch.total})` : null,
+          function: cov.function ? `${cov.function.percent?.toFixed(1) || 0}% (${cov.function.covered}/${cov.function.total})` : null,
+        }
       : null
 
     return {
@@ -202,10 +206,26 @@ function ReportPage({ run }: { run: RunRecord }) {
               </TableRow>
             )}
             {metadata.coverage && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Coverage</TableCell>
-                <TableCell className="text-foreground">{metadata.coverage}</TableCell>
-              </TableRow>
+              <>
+                {metadata.coverage.line && (
+                  <TableRow>
+                    <TableCell className="font-medium text-muted-foreground">Line Coverage</TableCell>
+                    <TableCell className="text-foreground text-sm">{metadata.coverage.line}</TableCell>
+                  </TableRow>
+                )}
+                {metadata.coverage.branch && (
+                  <TableRow>
+                    <TableCell className="font-medium text-muted-foreground">Branch Coverage</TableCell>
+                    <TableCell className="text-foreground text-sm">{metadata.coverage.branch}</TableCell>
+                  </TableRow>
+                )}
+                {metadata.coverage.function && (
+                  <TableRow>
+                    <TableCell className="font-medium text-muted-foreground">Function Coverage</TableCell>
+                    <TableCell className="text-foreground text-sm">{metadata.coverage.function}</TableCell>
+                  </TableRow>
+                )}
+              </>
             )}
           </TableBody>
         </Table>
@@ -293,98 +313,76 @@ function CheckReportSection({ check }: { check: RunCheck }) {
     typeof check.duration_s === 'number' ? ` (${check.duration_s.toFixed(3)}s)` : ''
   const grouped = groupCheckItems(check.tool, items)
   const showGrouped = grouped.length > 1
+  const hasItems = items.length > 0
 
   return (
     <div className="mt-8">
       <h2 className="text-lg font-semibold text-foreground mb-2">{check.tool}</h2>
       <p className="text-sm text-muted-foreground mb-3">
-        {passedCount} passed, {failedCount} failed, {skippedCount} skipped{durationLabel}
+        {hasItems 
+          ? `${passedCount} passed, ${failedCount} failed, ${skippedCount} skipped${durationLabel}`
+          : `No issues${durationLabel}`
+        }
       </p>
 
-      {items.length > 0 ? (
-        showGrouped ? (
-          <div className="space-y-5">
-            {grouped.map((group) => (
-              <div key={group.name}>
-                <p className="mb-2 font-mono text-sm text-muted-foreground">{group.name}</p>
-                <p className="mb-3 text-xs text-muted-foreground">
-                  {group.passed} passed, {group.failed} failed, {group.skipped} skipped
-                </p>
-                <ItemTableRows items={group.items} trimScope={group.name} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <ItemTableRows items={items} />
-        )
-      ) : (
-        <p className="text-sm text-muted-foreground">No test items reported</p>
-      )}
-    </div>
-  )
-}
-
-function ItemTableRows({
-  items,
-  trimScope,
-}: {
-  items: RunCheck['items']
-  trimScope?: string
-}) {
-  return (
-    <div className="overflow-hidden rounded-[12px]">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-20 font-semibold text-foreground">Status</TableHead>
-            <TableHead className="font-semibold text-foreground">Test</TableHead>
-            <TableHead className="w-24 font-semibold text-foreground">Duration</TableHead>
-            <TableHead className="font-semibold text-foreground">Message</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {(items || []).map((item, idx) => {
-            const s = (item.status || '').toLowerCase()
-            const isPassed = s === 'passed'
-            const isFailed = s === 'failed' || s === 'error'
-            const isSkipped = s === 'skipped'
-            const displayId = trimScope && item.id.startsWith(`${trimScope}::`)
-              ? item.id.slice(trimScope.length + 2)
-              : item.id
-
-            return (
-              <TableRow key={`${item.id}-${idx}`}>
-                <TableCell>
-                  {isPassed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
-                      <Check className="size-3" strokeWidth={2.5} />
-                      Pass
-                    </span>
-                  )}
-                  {isFailed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
-                      <X className="size-3" strokeWidth={2.5} />
-                      Fail
-                    </span>
-                  )}
-                  {isSkipped && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
-                      <Clock className="size-3" strokeWidth={2.5} />
-                      Skip
-                    </span>
-                  )}
-                  {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{s}</span>}
+      <div className="overflow-hidden rounded-[12px]">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32 font-semibold text-foreground">Status</TableHead>
+              <TableHead className="font-semibold text-foreground">Check</TableHead>
+              <TableHead className="w-24 font-semibold text-foreground">Duration</TableHead>
+              <TableHead className="font-semibold text-foreground">Message</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {hasItems ? (
+              (showGrouped ? grouped.flatMap(g => g.items) : items).map((item, idx) => {
+                const s = (item.status || '').toLowerCase()
+                const isPassed = s === 'passed'
+                const isFailed = s === 'failed' || s === 'error'
+                const isSkipped = s === 'skipped'
+                return (
+                  <TableRow key={`${item.id}-${idx}`}>
+                    <TableCell>
+                      {isPassed && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
+                          <Check className="size-3" strokeWidth={2.5} />
+                          Pass
+                        </span>
+                      )}
+                      {isFailed && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
+                          <X className="size-3" strokeWidth={2.5} />
+                          Fail
+                        </span>
+                      )}
+                      {isSkipped && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
+                          <Clock className="size-3" strokeWidth={2.5} />
+                          Skip
+                        </span>
+                      )}
+                      {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{s}</span>}
+                    </TableCell>
+                    <TableCell className="font-mono text-foreground">{item.id}</TableCell>
+                    <TableCell className="font-mono text-muted-foreground">
+                      {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
+                    </TableCell>
+                    <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
+                  </TableRow>
+                )
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  No issues found
                 </TableCell>
-                <TableCell className="font-mono text-foreground">{displayId}</TableCell>
-                <TableCell className="font-mono text-muted-foreground">
-                  {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
-                </TableCell>
-                <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
               </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
