@@ -140,6 +140,15 @@ Adapter mappings/examples: [docs/adapters.md](./docs/adapters.md)
 Cairn release assets must be named `cairn-<os>-<arch>.tar.gz`.
 The action downloads these assets when `cairn-path` is not provided.
 
+To publish or repair a tag release with the required assets in one command:
+
+```bash
+scripts/release.sh v0.2.3
+```
+
+The script builds all supported OS/arch tarballs and uploads them to the GitHub release
+for that tag (creating the release first if needed).
+
 ## Marketplace Note
 
 This repository intentionally keeps workflow examples in `docs/workflows/*.example.yml`.
