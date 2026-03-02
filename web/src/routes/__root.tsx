@@ -11,7 +11,7 @@ function RootLayout() {
   return (
     <div className="min-h-screen bg-[var(--wf-main-bg)] px-4 py-8 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-[1300px]">
-        <header className="mb-6 flex items-center justify-between">
+        <header className="no-print mb-6 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-foreground">Cairn Report</h1>
           <div className="flex items-center gap-3">
             <nav className="inline-flex rounded-lg border border-[var(--wf-sidebar-border)] bg-[var(--wf-sidebar-bg)] p-1 text-sm">

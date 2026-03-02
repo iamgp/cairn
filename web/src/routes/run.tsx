@@ -1,11 +1,14 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
-import { Check, X, Clock, Search } from 'lucide-react'
+import { Check, X, Clock, Search, Download } from 'lucide-react'
 import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Input } from '../components/ui/input'
+
+import { PDFDownloadLink } from '@react-pdf/renderer'
+import { ReportPdfDocument } from '../components/report-pdf'
 
 export const Route = createFileRoute('/run')({
   validateSearch: (search) => ({
@@ -117,11 +120,27 @@ function ReportPage({ run }: { run: RunRecord }) {
     }
   }, [run])
 
+  const pdfFilename = `cairn-report-${run.run_id}.pdf`
+
   return (
     <div className="py-4">
-      <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-bold text-foreground">Test Report</h1>
-        <p className="text-muted-foreground">{run.run_id}</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="mb-1 text-2xl font-bold text-foreground">Test Report</h1>
+          <p className="text-muted-foreground">{run.run_id}</p>
+        </div>
+        <PDFDownloadLink
+          document={<ReportPdfDocument run={run} />}
+          fileName={pdfFilename}
+          className="no-print flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+        >
+          {({ loading }) => (
+            <>
+              <Download className="size-4" />
+              {loading ? 'Generating...' : 'PDF'}
+            </>
+          )}
+        </PDFDownloadLink>
       </div>
 
       <div className="overflow-hidden rounded-[12px]">
