@@ -70,7 +70,7 @@ code {
   --wf-card-header-border: #D6D6D6;
   --wf-card-bg: #FFFFFF;
   --wf-card-border: #D6D6D6;
-  --wf-radius: 26px;
+  --wf-radius: 12px;
 
   --radius: 0.75rem;
 
@@ -144,7 +144,7 @@ code {
   --wf-card-header-border: #282828;
   --wf-card-bg: #161616;
   --wf-card-border: #242424;
-  --wf-radius: 26px;
+  --wf-radius: 12px;
 
   --sidebar: #09090B;
   --sidebar-foreground: #FAFAFA;

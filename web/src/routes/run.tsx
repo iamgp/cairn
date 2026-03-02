@@ -1,10 +1,11 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { useMemo } from 'react'
-import { Check, X, Clock } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, X, Clock, Search } from 'lucide-react'
 import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
+import { Input } from '../components/ui/input'
 
 export const Route = createFileRoute('/run')({
   validateSearch: (search) => ({
@@ -45,10 +46,26 @@ function InfoState({ children }: { children: ReactNode }) {
 function ReportPage({ run }: { run: RunRecord }) {
   const status = runStatus(run)
   const checks = run.checks || []
+  const [filter, setFilter] = useState('')
+
+  const filteredChecks = useMemo(() => {
+    if (!filter.trim()) return checks
+    const term = filter.toLowerCase()
+    return checks
+      .map((check) => ({
+        ...check,
+        items: (check.items || []).filter(
+          (item) =>
+            item.id.toLowerCase().includes(term) ||
+            (item.message || '').toLowerCase().includes(term)
+        ),
+      }))
+      .filter((check) => (check.items || []).length > 0)
+  }, [checks, filter])
 
   const counts = useMemo(() => {
     let passed = 0, failed = 0, skipped = 0
-    for (const check of checks) {
+    for (const check of filteredChecks) {
       for (const item of check.items || []) {
         const s = (item.status || '').toLowerCase()
         if (s === 'passed') passed++
@@ -57,7 +74,7 @@ function ReportPage({ run }: { run: RunRecord }) {
       }
     }
     return { passed, failed, skipped, total: passed + failed + skipped }
-  }, [checks])
+  }, [filteredChecks])
 
   return (
     <div className="py-4">
@@ -66,7 +83,7 @@ function ReportPage({ run }: { run: RunRecord }) {
         <p className="text-muted-foreground">{run.run_id}</p>
       </div>
 
-      <div className="overflow-hidden rounded-[26px]">
+      <div className="overflow-hidden rounded-[12px]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -103,7 +120,7 @@ function ReportPage({ run }: { run: RunRecord }) {
 
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">Summary</h2>
-        <div className="overflow-hidden rounded-[26px]">
+        <div className="overflow-hidden rounded-[12px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -125,7 +142,20 @@ function ReportPage({ run }: { run: RunRecord }) {
         </div>
       </div>
 
-      {checks.map((check) => (
+      <div className="relative mb-4 mt-8">
+        <div className="h-px bg-border mb-4" />
+        <div className="relative h-9">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter tests..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {filteredChecks.map((check) => (
         <CheckReportSection key={check.tool} check={check} />
       ))}
     </div>
@@ -209,7 +239,7 @@ function ItemTableRows({
   trimScope?: string
 }) {
   return (
-    <div className="overflow-hidden rounded-[26px]">
+    <div className="overflow-hidden rounded-[12px]">
       <Table>
         <TableHeader>
           <TableRow>
