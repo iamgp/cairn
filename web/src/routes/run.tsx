@@ -124,15 +124,15 @@ function ReportPage({ run }: { run: RunRecord }) {
 
   return (
     <div className="py-4">
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="mb-1 text-2xl font-bold text-foreground">Test Report</h1>
-          <p className="text-muted-foreground">{run.run_id}</p>
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="mb-1 text-xl sm:text-2xl font-bold text-foreground">Test Report</h1>
+          <p className="text-muted-foreground truncate">{run.run_id}</p>
         </div>
         <PDFDownloadLink
           document={<ReportPdfDocument run={run} />}
           fileName={pdfFilename}
-          className="no-print flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+          className="no-print flex shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors self-start"
         >
           {({ loading }) => (
             <>
@@ -143,29 +143,29 @@ function ReportPage({ run }: { run: RunRecord }) {
         </PDFDownloadLink>
       </div>
 
-      <div className="overflow-hidden rounded-[12px]">
+      <div className="overflow-x-auto rounded-[12px]">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="font-semibold text-foreground w-32">Field</TableHead>
+              <TableHead className="font-semibold text-foreground w-28 sm:w-32">Field</TableHead>
               <TableHead className="font-semibold text-foreground">Value</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {metadata.pr && (
               <TableRow>
-                <TableCell className="w-40 font-medium text-muted-foreground">PR</TableCell>
+                <TableCell className="w-28 sm:w-40 font-medium text-muted-foreground">PR</TableCell>
                 <TableCell className="text-foreground">#{metadata.pr}</TableCell>
               </TableRow>
             )}
             <TableRow>
-              <TableCell className="w-40 font-medium text-muted-foreground">Branch</TableCell>
+              <TableCell className="w-28 sm:w-40 font-medium text-muted-foreground">Branch</TableCell>
               <TableCell className="text-foreground">{metadata.branch || '-'}</TableCell>
             </TableRow>
             {metadata.shaFull && (
               <TableRow>
                 <TableCell className="font-medium text-muted-foreground">Commit</TableCell>
-                <TableCell className="font-mono text-foreground text-sm">{metadata.shaFull}</TableCell>
+                <TableCell className="font-mono text-foreground text-sm break-all">{metadata.shaFull}</TableCell>
               </TableRow>
             )}
             <TableRow>
@@ -252,7 +252,7 @@ function ReportPage({ run }: { run: RunRecord }) {
 
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">Summary</h2>
-        <div className="overflow-hidden rounded-[12px]">
+        <div className="overflow-x-auto rounded-[12px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -344,13 +344,13 @@ function CheckReportSection({ check }: { check: RunCheck }) {
         }
       </p>
 
-      <div className="overflow-hidden rounded-[12px]">
+      <div className="overflow-x-auto rounded-[12px]">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-32 font-semibold text-foreground">Status</TableHead>
+              <TableHead className="w-24 sm:w-32 font-semibold text-foreground">Status</TableHead>
               <TableHead className="font-semibold text-foreground">Check</TableHead>
-              <TableHead className="w-24 font-semibold text-foreground">Duration</TableHead>
+              <TableHead className="w-20 sm:w-24 font-semibold text-foreground">Duration</TableHead>
               <TableHead className="font-semibold text-foreground">Message</TableHead>
             </TableRow>
           </TableHeader>
@@ -470,9 +470,9 @@ function RunListPage({ runs }: { runs: RunRecord[] }) {
   const grouped = groupByDate(runs)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="py-4 sm:p-6 lg:p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Run Timeline</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Run Timeline</h1>
         <p className="text-sm text-muted-foreground mt-1">{runs.length} runs</p>
       </div>
 

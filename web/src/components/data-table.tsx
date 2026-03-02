@@ -53,7 +53,7 @@ export function DataTable<T>({
   const pageIndex = table.getState().pagination.pageIndex
 
   return (
-    <div className="bg-transparent">
+    <div className="bg-transparent overflow-x-auto">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

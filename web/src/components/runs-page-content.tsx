@@ -67,13 +67,13 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
       </section>
 
       <section>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <input
             type="text"
             value={filters.query}
             onChange={(e) => updateFilter('query', e.target.value)}
             placeholder="Search run ID, SHA, branch, checker"
-            className="h-9 min-w-[220px] flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+            className="h-9 w-full sm:min-w-[220px] sm:flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
           />
 
           <FilterSelect
