@@ -1,5 +1,8 @@
 name: "Cairn Collect + Ingest to gh-pages"
 description: "Download cairn, optionally collect a run record, ingest into gh-pages history, and publish updates"
+branding:
+  icon: "check-circle"
+  color: "blue"
 
 inputs:
   ingest-file:

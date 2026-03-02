@@ -63,18 +63,36 @@ Adapter details and mapping examples are in `docs/adapters.md`.
 
 ## Release Process
 
-This repo includes `.github/workflows/release.yml`.
-
-1. Tag a release:
+1. Build release archives:
 
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   mkdir -p dist
+   for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+     GOOS="${target%/*}"
+     GOARCH="${target#*/}"
+     bin_name="cairn"
+     [ "${GOOS}" = "windows" ] && bin_name="cairn.exe"
+     out_dir="build/${GOOS}-${GOARCH}"
+     mkdir -p "${out_dir}"
+     GOOS="${GOOS}" GOARCH="${GOARCH}" CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "${out_dir}/${bin_name}" ./
+     tar -czf "dist/cairn-${GOOS}-${GOARCH}.tar.gz" -C "${out_dir}" "${bin_name}"
+   done
    ```
 
-2. The workflow cross-compiles and uploads release assets named `cairn-<os>-<arch>.tar.gz`.
+2. Tag and publish:
 
-Those asset names match what `action.yml` downloads.
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   gh release create v0.2.0 dist/*.tar.gz --generate-notes
+   ```
+
+Release assets must be named `cairn-<os>-<arch>.tar.gz` to match what `action.yml` downloads.
+
+## Marketplace Publishing
+
+GitHub Marketplace requires action repositories to not contain workflow files under `.github/workflows/`.
+For this reason, this repository keeps workflow examples in `docs/workflows/*.example.yml` instead of active workflow files.
 
 ## Rich UI Development
 
