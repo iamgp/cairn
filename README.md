@@ -1,105 +1,146 @@
-# Cairn
+# Cairn Collect + Ingest to gh-pages
 
-Cairn is a Go CLI and reusable GitHub Action for ingesting check results, preserving long-term run history, and publishing report data to `gh-pages`.
+Cairn is a composite GitHub Action that turns CI outputs into a historical report on `gh-pages`.
 
-## What It Includes
-
-- CLI commands: `collect`, `ingest`, `comment`, `prune`, `init`
-- Built-in adapters: `junit_xml`, `ruff_json`, `ty_json`, `go_test_json`, `golangci_lint_json`, `generic_json`
-- Composite action in `action.yml` for CI ingestion into `gh-pages`
-- Rich report frontend in `web/` (TanStack Start + shadcn-style components)
+It can:
+- collect check results from `cairn.toml`
+- ingest run records into history
+- build/publish static report assets
+- deploy GitHub Pages
+- post/update a PR summary comment
 
 ## Quickstart
 
-1. Install the CLI locally:
+```yaml
+name: Cairn
 
-   ```bash
-   go install github.com/iamgp/cairn@latest
-   ```
+on:
+  push:
+    branches: [main]
+  pull_request:
 
-2. Scaffold project files:
-
-   ```bash
-   cairn init
-   ```
-
-3. Commit generated files (`cairn.toml`, `README.md`, `docs/adapters.md`, `.github/workflows/cairn.yml`) and adapt checker inputs to your repository.
-
-4. Use the reusable action in your workflow:
-
-   ```yaml
-   jobs:
-     cairn:
-       runs-on: ubuntu-latest
-       permissions:
-         contents: write
-         pages: write
-         id-token: write
-       steps:
-         - uses: iamgp/cairn@v0.1.0
-           with:
-             collect-config: cairn.toml
-             collect-args: >-
-               --matrix python=3.12
-   ```
-
-By default, the action collects the run record, ingests history, builds the web report, pushes `gh-pages`, and deploys Pages in one step. It also auto-detects common tool versions and hashes common lockfiles. Set `deploy-pages: "false"` if you only want collect/ingest/build/push behavior.
-
-To post PR comments as a dedicated bot/app account (for example `Cairn`), pass `comment-token` with that account's token. Without it, comments are posted as `github-actions[bot]`.
-
-Phase-2 evidence flags (`--requirement-id`, `--artifact`, `--coverage`) and Phase-1 provenance flags (`--tool-version`, `--dependency-hash`) can be captured directly in `collect`.
-Coverage can also be ingested from reports with `--coverage-file` (LCOV, Cobertura XML, or JaCoCo XML).
-
-## Configuration
-
-`cairn.toml` supports:
-
-- `[project]` metadata
-- `[history]` retention policy (`max_days`, `max_runs`) consumed by `cairn prune` and applied automatically by the composite action after ingest
-- `[pr_comment]` PR summary toggles (`enabled`, `show_coverage`, `show_per_matrix`) used by the composite action comment step
-- `[[checkers]]` adapter configuration
-
-Adapter details and mapping examples are in `docs/adapters.md`.
-
-## Release Process
-
-1. Build release archives:
-
-   ```bash
-   mkdir -p dist
-   for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
-     GOOS="${target%/*}"
-     GOARCH="${target#*/}"
-     bin_name="cairn"
-     [ "${GOOS}" = "windows" ] && bin_name="cairn.exe"
-     out_dir="build/${GOOS}-${GOARCH}"
-     mkdir -p "${out_dir}"
-     GOOS="${GOOS}" GOARCH="${GOARCH}" CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "${out_dir}/${bin_name}" ./
-     tar -czf "dist/cairn-${GOOS}-${GOARCH}.tar.gz" -C "${out_dir}" "${bin_name}"
-   done
-   ```
-
-2. Tag and publish:
-
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   gh release create v0.2.0 dist/*.tar.gz --generate-notes
-   ```
-
-Release assets must be named `cairn-<os>-<arch>.tar.gz` to match what `action.yml` downloads.
-
-## Marketplace Publishing
-
-GitHub Marketplace requires action repositories to not contain workflow files under `.github/workflows/`.
-For this reason, this repository keeps workflow examples in `docs/workflows/*.example.yml` instead of active workflow files.
-
-## Rich UI Development
-
-```bash
-cd web
-npm install
-npm run dev
+jobs:
+  cairn:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: iamgp/cairn@v0.2.1
+        with:
+          collect-config: cairn.toml
 ```
 
-For publishing, the composite action builds `web/.output/public` and copies it to the target `gh-pages` branch.
+This is enough for the default flow: collect -> ingest -> build report -> push `gh-pages` -> deploy Pages.
+
+## Common Usage
+
+### 1) Collect from `cairn.toml`
+
+```yaml
+- uses: iamgp/cairn@v0.2.1
+  with:
+    collect-config: cairn.toml
+    collect-args: >-
+      --matrix python=3.12
+```
+
+### 2) Ingest a prebuilt run record
+
+```yaml
+- uses: iamgp/cairn@v0.2.1
+  with:
+    ingest-file: artifacts/cairn-run-record.json
+```
+
+### 3) Publish to a subdirectory (for previews)
+
+```yaml
+- uses: iamgp/cairn@v0.2.1
+  with:
+    collect-config: cairn.toml
+    pages-subdir: previews/pr-${{ github.event.pull_request.number }}
+```
+
+### 4) Disable Pages deployment (ingest/build only)
+
+```yaml
+- uses: iamgp/cairn@v0.2.1
+  with:
+    collect-config: cairn.toml
+    deploy-pages: "false"
+```
+
+### 5) Post PR comments as a bot/app account
+
+```yaml
+- uses: iamgp/cairn@v0.2.1
+  with:
+    collect-config: cairn.toml
+    comment-token: ${{ secrets.CAIRN_COMMENT_TOKEN }}
+```
+
+Without `comment-token`, comments are posted as `github-actions[bot]`.
+
+## Inputs
+
+Primary inputs:
+
+- `collect-config`: path to `cairn.toml` to run `cairn collect`
+- `ingest-file`: path to an existing run record JSON
+- `collect-args`: additional flags for `cairn collect`
+- `collect-matrix-json`: JSON object to auto-append `--matrix` flags
+- `pages-subdir`: publish under a subdirectory on `gh-pages`
+- `deploy-pages`: `"true"` or `"false"` (default `"true"`)
+- `post-pr-comment`: enable/disable PR comment step (default `"true"`)
+- `comment-token`: optional token for PR comments
+
+Advanced inputs:
+
+- `gh-pages-branch` (default `gh-pages`)
+- `cairn-version` (default `latest`)
+- `cairn-path` (use a local/prebuilt binary instead of downloading release assets)
+- `auto-tool-versions` and `auto-dependency-hashes` (both default `"true"`)
+- `commit-message`
+- `collect-out`
+
+Full metadata and defaults: [action.yml](./action.yml)
+
+## Required Permissions
+
+Typical minimum permissions for full behavior:
+
+```yaml
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  pull-requests: write
+```
+
+If `deploy-pages: "false"`, `pages` and `id-token` are not required.
+If `post-pr-comment: "false"`, `pull-requests` is not required.
+
+## Configuration File
+
+`collect-config` points to `cairn.toml`, which supports:
+
+- `[project]` metadata
+- `[history]` pruning policy (`max_days`, `max_runs`)
+- `[pr_comment]` rendering toggles
+- `[[checkers]]` adapter definitions
+
+Adapter mappings/examples: [docs/adapters.md](./docs/adapters.md)
+
+## Releases
+
+Cairn release assets must be named `cairn-<os>-<arch>.tar.gz`.
+The action downloads these assets when `cairn-path` is not provided.
+
+## Marketplace Note
+
+This repository intentionally keeps workflow examples in `docs/workflows/*.example.yml`.
+GitHub Marketplace action repositories cannot contain active workflow files under `.github/workflows/`.
