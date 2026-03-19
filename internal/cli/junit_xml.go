@@ -80,16 +80,25 @@ func parsePytestJUnitXML(raw []byte) (Check, error) {
 			DurationS: parseSeconds(tc.Time),
 			Stdout:    strings.TrimSpace(tc.SystemOut),
 			Stderr:    strings.TrimSpace(tc.SystemErr),
+			Suite:     strings.TrimSpace(tc.ClassName),
 		}
 
 		switch {
 		case tc.Error != nil:
 			item.Status = "error"
-			item.Message = firstNonEmpty(tc.Error.Message, tc.Error.Text)
+			item.Message = strings.TrimSpace(tc.Error.Message)
+			item.Trace = strings.TrimSpace(tc.Error.Text)
+			if item.Message == "" {
+				item.Message = item.Trace
+			}
 			summary["errors"]++
 		case tc.Failure != nil:
 			item.Status = "failed"
-			item.Message = firstNonEmpty(tc.Failure.Message, tc.Failure.Text)
+			item.Message = strings.TrimSpace(tc.Failure.Message)
+			item.Trace = strings.TrimSpace(tc.Failure.Text)
+			if item.Message == "" {
+				item.Message = item.Trace
+			}
 			summary["failed"]++
 		case tc.Skipped != nil:
 			item.Status = "skipped"

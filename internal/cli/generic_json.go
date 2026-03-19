@@ -22,7 +22,12 @@ type genericJSONItemMapping struct {
 	Stdout    string `toml:"stdout"`
 	Stderr    string `toml:"stderr"`
 	Message   string `toml:"message"`
+	Trace     string `toml:"trace"`
 	Tags      string `toml:"tags"`
+	Suite     string `toml:"suite"`
+	File      string `toml:"file"`
+	Line      string `toml:"line"`
+	Column    string `toml:"column"`
 }
 
 func parseGenericCheckJSON(raw []byte, tool string, mapping genericJSONMapping) (Check, error) {
@@ -85,11 +90,25 @@ func parseGenericItem(rawItem any, mapping genericJSONItemMapping, index int) It
 		Stdout:    extractStringPath(rawItem, mapping.Stdout),
 		Stderr:    extractStringPath(rawItem, mapping.Stderr),
 		Message:   extractStringPath(rawItem, mapping.Message),
+		Trace:     extractStringPath(rawItem, mapping.Trace),
 		Tags:      extractStringSlicePath(rawItem, mapping.Tags),
+		Suite:     extractStringPath(rawItem, mapping.Suite),
 	}
 	if item.ID == "" {
 		item.ID = fmt.Sprintf("item-%d", index+1)
 	}
+
+	file := extractStringPath(rawItem, mapping.File)
+	line := int(extractFloatPath(rawItem, mapping.Line))
+	column := int(extractFloatPath(rawItem, mapping.Column))
+	if file != "" || line > 0 {
+		item.Source = &ItemSource{
+			File:   file,
+			Line:   line,
+			Column: column,
+		}
+	}
+
 	return item
 }
 

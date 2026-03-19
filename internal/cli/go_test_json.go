@@ -13,6 +13,7 @@ func parseGoTestJSON(raw []byte) (Check, error) {
 
 	items := make([]Item, 0)
 	indexByID := map[string]int{}
+	outputByID := map[string]*strings.Builder{}
 	summary := map[string]int{
 		"passed":  0,
 		"failed":  0,
@@ -28,12 +29,23 @@ func parseGoTestJSON(raw []byte) (Check, error) {
 			return Check{}, fmt.Errorf("decode go test json: %w", err)
 		}
 
+		itemID := goTestItemID(event.Package, event.Test)
+
+		if event.Action == "output" && itemID != "" {
+			buf, exists := outputByID[itemID]
+			if !exists {
+				buf = &strings.Builder{}
+				outputByID[itemID] = buf
+			}
+			buf.WriteString(event.Output)
+			continue
+		}
+
 		status, ok := goTestStatus(event.Action)
 		if !ok {
 			continue
 		}
 
-		itemID := goTestItemID(event.Package, event.Test)
 		if itemID == "" {
 			continue
 		}
@@ -50,12 +62,30 @@ func parseGoTestJSON(raw []byte) (Check, error) {
 			ID:        itemID,
 			Status:    status,
 			DurationS: event.Elapsed,
+			Suite:     strings.TrimSpace(event.Package),
 		}
 		if event.Test == "" {
 			item.Tags = []string{"scope:package"}
 		}
 		items = append(items, item)
 		indexByID[itemID] = len(items) - 1
+	}
+
+	for id, buf := range outputByID {
+		index, exists := indexByID[id]
+		if !exists {
+			continue
+		}
+		output := strings.TrimSpace(buf.String())
+		if output == "" {
+			continue
+		}
+		s := (items[index].Status)
+		if s == "failed" {
+			items[index].Stderr = output
+		} else {
+			items[index].Stdout = output
+		}
 	}
 
 	totalDuration := 0.0
@@ -114,4 +144,5 @@ type goTestEvent struct {
 	Package string  `json:"Package"`
 	Test    string  `json:"Test"`
 	Elapsed float64 `json:"Elapsed"`
+	Output  string  `json:"Output"`
 }

@@ -32,6 +32,15 @@ func parseGolangCILintJSON(raw []byte) (Check, error) {
 			item.Tags = tags
 		}
 
+		filename := strings.TrimSpace(issue.Pos.Filename)
+		if filename != "" || issue.Pos.Line > 0 {
+			item.Source = &ItemSource{
+				File:   filename,
+				Line:   issue.Pos.Line,
+				Column: issue.Pos.Column,
+			}
+		}
+
 		items = append(items, item)
 	}
 

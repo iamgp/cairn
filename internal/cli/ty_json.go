@@ -73,6 +73,14 @@ func parseTyDiagnosticV1(raw []byte, index int) (Item, error) {
 		item.Tags = []string{"severity:" + severity}
 	}
 
+	if filename != "" || line > 0 {
+		item.Source = &ItemSource{
+			File:   filename,
+			Line:   line,
+			Column: column,
+		}
+	}
+
 	return item, nil
 }
 

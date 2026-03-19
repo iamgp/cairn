@@ -15,11 +15,24 @@ func parseRuffCheckJSON(raw []byte) (Check, error) {
 
 	items := make([]Item, 0, len(violations))
 	for _, violation := range violations {
-		items = append(items, Item{
+		item := Item{
 			ID:      violationItemID(violation),
 			Status:  "failed",
 			Message: strings.TrimSpace(violation.Message),
-		})
+		}
+		filename := strings.TrimSpace(violation.Filename)
+		if filename != "" || violation.Location.Row > 0 {
+			item.Source = &ItemSource{
+				File:   filename,
+				Line:   violation.Location.Row,
+				Column: violation.Location.Column,
+			}
+		}
+		code := strings.TrimSpace(violation.Code)
+		if code != "" {
+			item.Tags = []string{"rule:" + code}
+		}
+		items = append(items, item)
 	}
 
 	status := "passed"

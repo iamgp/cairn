@@ -96,11 +96,21 @@ type Check struct {
 
 // Item is the finest-grained result for a check.
 type Item struct {
-	ID        string   `json:"id"`
-	Status    string   `json:"status"`
-	DurationS float64  `json:"duration_s"`
-	Stdout    string   `json:"stdout,omitempty"`
-	Stderr    string   `json:"stderr,omitempty"`
-	Message   string   `json:"message,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
+	ID        string        `json:"id"`
+	Status    string        `json:"status"`
+	DurationS float64       `json:"duration_s"`
+	Stdout    string        `json:"stdout,omitempty"`
+	Stderr    string        `json:"stderr,omitempty"`
+	Message   string        `json:"message,omitempty"`
+	Trace     string        `json:"trace,omitempty"`
+	Tags      []string      `json:"tags,omitempty"`
+	Source    *ItemSource   `json:"source,omitempty"`
+	Suite     string        `json:"suite,omitempty"`
+}
+
+// ItemSource is the file location associated with a test or diagnostic.
+type ItemSource struct {
+	File   string `json:"file,omitempty"`
+	Line   int    `json:"line,omitempty"`
+	Column int    `json:"column,omitempty"`
 }

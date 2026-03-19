@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 
+export type RunItemSource = {
+  file?: string
+  line?: number
+  column?: number
+}
+
 export type RunItem = {
   id: string
   status: string
   duration_s?: number
   message?: string
+  trace?: string
   stdout?: string
   stderr?: string
   tags?: string[]
+  source?: RunItemSource
+  suite?: string
 }
 
 export type RunCheck = {

@@ -1,8 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { useMemo, useState } from 'react'
-import { Check, X, Clock, Search, Download } from 'lucide-react'
-import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunRecord } from '../lib/history'
+import { useMemo, useState, useCallback } from 'react'
+import { Check, X, Clock, Search, Download, ChevronRight, Tag, Terminal, AlertTriangle } from 'lucide-react'
+import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunItem, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Input } from '../components/ui/input'
@@ -32,7 +32,7 @@ function RunsPage() {
       if (!search.sha) return true
       return (r.sha_full || r.sha) === search.sha
     })
-    if (run) return <ReportPage run={run} />
+    if (run) return <ReportPage run={run} allRuns={runs} />
   }
 
   return <RunListPage runs={runs} />
@@ -46,10 +46,44 @@ function InfoState({ children }: { children: ReactNode }) {
   )
 }
 
-function ReportPage({ run }: { run: RunRecord }) {
+type TestHistoryEntry = {
+  status: string
+  duration_s: number
+  timestamp: string
+  runId: string
+}
+
+type TestHistoryMap = Map<string, TestHistoryEntry[]>
+
+function buildTestHistory(allRuns: RunRecord[], currentRunId: string): TestHistoryMap {
+  const map: TestHistoryMap = new Map()
+  for (const run of allRuns) {
+    for (const check of run.checks || []) {
+      for (const item of check.items || []) {
+        const key = `${check.tool}::${item.id}`
+        let entries = map.get(key)
+        if (!entries) {
+          entries = []
+          map.set(key, entries)
+        }
+        entries.push({
+          status: item.status,
+          duration_s: item.duration_s ?? 0,
+          timestamp: run.timestamp,
+          runId: run.run_id,
+        })
+      }
+    }
+  }
+  return map
+}
+
+function ReportPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) {
   const status = runStatus(run)
   const checks = run.checks || []
   const [filter, setFilter] = useState('')
+
+  const testHistory = useMemo(() => buildTestHistory(allRuns, run.run_id), [allRuns, run.run_id])
 
   const filteredChecks = useMemo(() => {
     if (!filter.trim()) return checks
@@ -124,155 +158,49 @@ function ReportPage({ run }: { run: RunRecord }) {
 
   return (
     <div className="py-4">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="mb-1 text-xl sm:text-2xl font-bold text-foreground">Test Report</h1>
-          <p className="text-muted-foreground truncate">{run.run_id}</p>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Test Report</h1>
+          <StatusBadge status={status} />
         </div>
-        <PDFDownloadLink
-          document={<ReportPdfDocument run={run} />}
-          fileName={pdfFilename}
-          className="no-print flex shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors self-start"
-        >
-          {({ loading }) => (
-            <>
-              <Download className="size-4" />
-              {loading ? 'Generating...' : 'PDF'}
-            </>
-          )}
-        </PDFDownloadLink>
-      </div>
-
-      <div className="overflow-x-auto rounded-[12px]">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-semibold text-foreground w-28 sm:w-32">Field</TableHead>
-              <TableHead className="font-semibold text-foreground">Value</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {metadata.pr && (
-              <TableRow>
-                <TableCell className="w-28 sm:w-40 font-medium text-muted-foreground">PR</TableCell>
-                <TableCell className="text-foreground">#{metadata.pr}</TableCell>
-              </TableRow>
-            )}
-            <TableRow>
-              <TableCell className="w-28 sm:w-40 font-medium text-muted-foreground">Branch</TableCell>
-              <TableCell className="text-foreground">{metadata.branch || '-'}</TableCell>
-            </TableRow>
-            {metadata.shaFull && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Commit</TableCell>
-                <TableCell className="font-mono text-foreground text-sm break-all">{metadata.shaFull}</TableCell>
-              </TableRow>
-            )}
-            <TableRow>
-              <TableCell className="font-medium text-muted-foreground">Date</TableCell>
-              <TableCell className="text-foreground">{metadata.timestamp}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-muted-foreground">Duration</TableCell>
-              <TableCell className="text-foreground">{metadata.duration}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium text-muted-foreground">Status</TableCell>
-              <TableCell>
-                <StatusBadge status={status} />
-              </TableCell>
-            </TableRow>
-            {metadata.repository && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Repository</TableCell>
-                <TableCell className="text-foreground">{metadata.repository}</TableCell>
-              </TableRow>
-            )}
-            {metadata.workflow && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Workflow</TableCell>
-                <TableCell className="text-foreground">{metadata.workflow}</TableCell>
-              </TableRow>
-            )}
-            {metadata.triggeredBy && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Triggered By</TableCell>
-                <TableCell className="text-foreground">{metadata.triggeredBy}</TableCell>
-              </TableRow>
-            )}
-            {metadata.provider && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">CI Provider</TableCell>
-                <TableCell className="text-foreground">{metadata.provider}</TableCell>
-              </TableRow>
-            )}
-            {metadata.runnerOs && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Runner</TableCell>
-                <TableCell className="text-foreground">{metadata.runnerOs}</TableCell>
-              </TableRow>
-            )}
-            {metadata.matrix && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Matrix</TableCell>
-                <TableCell className="text-foreground">{metadata.matrix}</TableCell>
-              </TableRow>
-            )}
-            {metadata.toolVersions && (
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">Tools</TableCell>
-                <TableCell className="text-foreground text-sm">{metadata.toolVersions}</TableCell>
-              </TableRow>
-            )}
-            {metadata.coverage && (
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground truncate">{run.run_id}</p>
+          <PDFDownloadLink
+            document={<ReportPdfDocument run={run} />}
+            fileName={pdfFilename}
+            className="no-print flex shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+          >
+            {({ loading }) => (
               <>
-                {metadata.coverage.line && (
-                  <TableRow>
-                    <TableCell className="font-medium text-muted-foreground">Line Coverage</TableCell>
-                    <TableCell className="text-foreground text-sm">{metadata.coverage.line}</TableCell>
-                  </TableRow>
-                )}
-                {metadata.coverage.branch && (
-                  <TableRow>
-                    <TableCell className="font-medium text-muted-foreground">Branch Coverage</TableCell>
-                    <TableCell className="text-foreground text-sm">{metadata.coverage.branch}</TableCell>
-                  </TableRow>
-                )}
-                {metadata.coverage.function && (
-                  <TableRow>
-                    <TableCell className="font-medium text-muted-foreground">Function Coverage</TableCell>
-                    <TableCell className="text-foreground text-sm">{metadata.coverage.function}</TableCell>
-                  </TableRow>
-                )}
+                <Download className="size-4" />
+                {loading ? 'Generating...' : 'PDF'}
               </>
             )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Summary</h2>
-        <div className="overflow-x-auto rounded-[12px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="font-semibold text-foreground">Total</TableHead>
-                <TableHead className="font-semibold text-foreground">Passed</TableHead>
-                <TableHead className="font-semibold text-foreground">Failed</TableHead>
-                <TableHead className="font-semibold text-foreground">Skipped</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium text-foreground">{counts.total}</TableCell>
-                <TableCell className="font-medium text-success">{counts.passed}</TableCell>
-                <TableCell className="font-medium text-destructive">{counts.failed}</TableCell>
-                <TableCell className="font-medium text-warning">{counts.skipped}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          </PDFDownloadLink>
         </div>
       </div>
+
+      <MetadataGrid>
+        <MetadataCell label="Total" value={String(counts.total)} />
+        <MetadataCell label="Passed" value={String(counts.passed)} valueClassName="text-success" />
+        <MetadataCell label="Failed" value={String(counts.failed)} valueClassName="text-destructive" />
+        <MetadataCell label="Skipped" value={String(counts.skipped)} valueClassName="text-warning" />
+        <MetadataCell label="Branch" value={metadata.branch || '-'} />
+        <MetadataCell label="Duration" value={metadata.duration} />
+        {metadata.pr && <MetadataCell label="PR" value={`#${metadata.pr}`} />}
+        <MetadataCell label="Date" value={metadata.timestamp} />
+        {metadata.shaFull && <MetadataCell label="Commit" value={metadata.shaFull} mono truncate />}
+        {metadata.repository && <MetadataCell label="Repository" value={metadata.repository} />}
+        {metadata.workflow && <MetadataCell label="Workflow" value={metadata.workflow} />}
+        {metadata.triggeredBy && <MetadataCell label="Triggered By" value={metadata.triggeredBy} />}
+        {metadata.provider && <MetadataCell label="CI Provider" value={metadata.provider} />}
+        {metadata.runnerOs && <MetadataCell label="Runner" value={metadata.runnerOs} />}
+        {metadata.matrix && <MetadataCell label="Matrix" value={metadata.matrix} />}
+        {metadata.toolVersions && <MetadataCell label="Tools" value={metadata.toolVersions} />}
+        {metadata.coverage?.line && <MetadataCell label="Line Coverage" value={metadata.coverage.line} />}
+        {metadata.coverage?.branch && <MetadataCell label="Branch Coverage" value={metadata.coverage.branch} />}
+        {metadata.coverage?.function && <MetadataCell label="Function Coverage" value={metadata.coverage.function} />}
+      </MetadataGrid>
 
       <div className="relative mb-4 mt-8">
         <div className="h-px bg-border mb-4" />
@@ -288,7 +216,7 @@ function ReportPage({ run }: { run: RunRecord }) {
       </div>
 
       {filteredChecks.map((check) => (
-        <CheckReportSection key={check.tool} check={check} />
+        <CheckReportSection key={check.tool} check={check} testHistory={testHistory} />
       ))}
     </div>
   )
@@ -323,7 +251,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span className="text-muted-foreground">{status}</span>
 }
 
-function CheckReportSection({ check }: { check: RunCheck }) {
+function CheckReportSection({ check, testHistory }: { check: RunCheck; testHistory: TestHistoryMap }) {
   const items = check.items || []
   const passedCount = items.filter(i => (i.status || '').toLowerCase() === 'passed').length
   const failedCount = items.filter(i => ['failed', 'error'].includes((i.status || '').toLowerCase())).length
@@ -333,6 +261,18 @@ function CheckReportSection({ check }: { check: RunCheck }) {
   const grouped = groupCheckItems(check.tool, items)
   const showGrouped = grouped.length > 1
   const hasItems = items.length > 0
+
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const toggleItem = useCallback((key: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const displayItems = showGrouped ? grouped.flatMap(g => g.items) : items
 
   return (
     <div className="mt-8">
@@ -348,53 +288,43 @@ function CheckReportSection({ check }: { check: RunCheck }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8 font-semibold text-foreground"></TableHead>
               <TableHead className="w-24 sm:w-32 font-semibold text-foreground">Status</TableHead>
-              <TableHead className="font-semibold text-foreground">Check</TableHead>
+              <TableHead className="font-semibold text-foreground">Test</TableHead>
               <TableHead className="w-20 sm:w-24 font-semibold text-foreground">Duration</TableHead>
               <TableHead className="font-semibold text-foreground">Message</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {hasItems ? (
-              (showGrouped ? grouped.flatMap(g => g.items) : items).map((item, idx) => {
+              displayItems.map((item, idx) => {
+                const itemKey = `${item.id}-${idx}`
+                const isExpanded = expandedItems.has(itemKey)
                 const s = (item.status || '').toLowerCase()
                 const isPassed = s === 'passed'
                 const isFailed = s === 'failed' || s === 'error'
                 const isSkipped = s === 'skipped'
+                const hasDetails = true
+                const history = testHistory.get(`${check.tool}::${item.id}`)
                 return (
-                  <TableRow key={`${item.id}-${idx}`}>
-                    <TableCell>
-                      {isPassed && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
-                          <Check className="size-3" strokeWidth={2.5} />
-                          Pass
-                        </span>
-                      )}
-                      {isFailed && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
-                          <X className="size-3" strokeWidth={2.5} />
-                          Fail
-                        </span>
-                      )}
-                      {isSkipped && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
-                          <Clock className="size-3" strokeWidth={2.5} />
-                          Skip
-                        </span>
-                      )}
-                      {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{s}</span>}
-                    </TableCell>
-                    <TableCell className="font-mono text-foreground">{item.id}</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
-                      {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
-                    </TableCell>
-                    <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
-                  </TableRow>
+                  <ItemRow
+                    key={itemKey}
+                    item={item}
+                    itemKey={itemKey}
+                    isExpanded={isExpanded}
+                    isPassed={isPassed}
+                    isFailed={isFailed}
+                    isSkipped={isSkipped}
+                    hasDetails={hasDetails}
+                    statusLabel={s}
+                    onToggle={toggleItem}
+                    history={history}
+                  />
                 )
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No issues found
                 </TableCell>
               </TableRow>
@@ -404,6 +334,307 @@ function CheckReportSection({ check }: { check: RunCheck }) {
       </div>
     </div>
   )
+}
+
+function ItemRow({
+  item,
+  itemKey,
+  isExpanded,
+  isPassed,
+  isFailed,
+  isSkipped,
+  hasDetails,
+  statusLabel,
+  onToggle,
+  history,
+}: {
+  item: RunItem
+  itemKey: string
+  isExpanded: boolean
+  isPassed: boolean
+  isFailed: boolean
+  isSkipped: boolean
+  hasDetails: boolean
+  statusLabel: string
+  onToggle: (key: string) => void
+  history?: TestHistoryEntry[]
+}) {
+  return (
+    <>
+      <TableRow
+        className={cn(
+          hasDetails && 'cursor-pointer hover:bg-accent/50',
+          isExpanded && 'bg-accent/30',
+        )}
+        onClick={() => hasDetails && onToggle(itemKey)}
+      >
+        <TableCell className="w-8 px-2">
+          {hasDetails && (
+            <ChevronRight
+              className={cn(
+                'size-4 text-muted-foreground transition-transform duration-150',
+                isExpanded && 'rotate-90',
+              )}
+            />
+          )}
+        </TableCell>
+        <TableCell>
+          {isPassed && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
+              <Check className="size-3" strokeWidth={2.5} />
+              Pass
+            </span>
+          )}
+          {isFailed && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
+              <X className="size-3" strokeWidth={2.5} />
+              Fail
+            </span>
+          )}
+          {isSkipped && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
+              <Clock className="size-3" strokeWidth={2.5} />
+              Skip
+            </span>
+          )}
+          {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{statusLabel}</span>}
+        </TableCell>
+        <TableCell className="font-mono text-foreground">{item.id}</TableCell>
+        <TableCell className="font-mono text-muted-foreground">
+          {item.duration_s != null ? `${(item.duration_s * 1000).toFixed(1)}ms` : '-'}
+        </TableCell>
+        <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
+      </TableRow>
+      {isExpanded && (
+        <TableRow>
+          <TableCell colSpan={5} className="!p-0 !border-t-0">
+            <ItemDetailPanel item={item} history={history} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  )
+}
+
+function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHistoryEntry[] }) {
+  const sourceLabel = item.source
+    ? [
+        item.source.file,
+        item.source.line ? `L${item.source.line}` : null,
+        item.source.column ? `C${item.source.column}` : null,
+      ]
+        .filter(Boolean)
+        .join(':')
+    : null
+
+  const historyStats = useMemo(() => {
+    if (!history || history.length === 0) return null
+    const total = history.length
+    const passed = history.filter(h => h.status === 'passed').length
+    const failed = history.filter(h => ['failed', 'error'].includes(h.status)).length
+    const skipped = history.filter(h => h.status === 'skipped').length
+    const durations = history.filter(h => h.duration_s > 0).map(h => h.duration_s)
+    const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
+    const minDuration = durations.length > 0 ? Math.min(...durations) : 0
+    const maxDuration = durations.length > 0 ? Math.max(...durations) : 0
+    const passRate = total > 0 ? (passed / total) * 100 : 0
+    const failRate = total > 0 ? (failed / total) * 100 : 0
+    // sorted oldest → newest for the timeline
+    const timeline = [...history].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+    return { total, passed, failed, skipped, avgDuration, minDuration, maxDuration, passRate, failRate, timeline }
+  }, [history])
+
+  return (
+    <div className="bg-accent/20 px-6 py-4 space-y-4 border-t border-border/50">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <DetailField label="Test ID" value={item.id} mono />
+        <DetailField label="Status" value={item.status} />
+        <DetailField
+          label="Duration"
+          value={item.duration_s != null ? formatDuration(item.duration_s) : '-'}
+        />
+        {item.suite && <DetailField label="Suite" value={item.suite} mono />}
+        {sourceLabel && <DetailField label="Source" value={sourceLabel} mono />}
+        {item.tags && item.tags.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+              <Tag className="size-3" />
+              Tags
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full bg-info-muted px-2 py-0.5 text-xs font-medium text-info-foreground"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {historyStats && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            History ({historyStats.total} runs)
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            <DetailField label="Pass Rate" value={`${historyStats.passRate.toFixed(0)}%`} />
+            <DetailField label="Fail Rate" value={`${historyStats.failRate.toFixed(0)}%`} />
+            <DetailField label="Avg Duration" value={formatDuration(historyStats.avgDuration)} />
+            <DetailField label="Min Duration" value={formatDuration(historyStats.minDuration)} />
+            <DetailField label="Max Duration" value={formatDuration(historyStats.maxDuration)} />
+            <DetailField label="Runs" value={`${historyStats.passed}✓  ${historyStats.failed}✗  ${historyStats.skipped}⊘`} />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Result Timeline</p>
+            <div className="relative flex items-center py-1">
+              <div className="absolute left-1 right-1 top-1/2 h-px bg-border" />
+              <div className="relative flex items-center justify-between w-full">
+                {historyStats.timeline.map((entry, i) => {
+                  const s = entry.status.toLowerCase()
+                  const ringColor =
+                    s === 'passed' ? 'border-success bg-success' :
+                    s === 'failed' || s === 'error' ? 'border-destructive bg-destructive' :
+                    s === 'skipped' ? 'border-warning bg-warning' : 'border-muted-foreground bg-muted-foreground'
+                  const isLast = i === historyStats.timeline.length - 1
+                  return (
+                    <div
+                      key={`${entry.runId}-${i}`}
+                      title={`${entry.status} — ${new Date(entry.timestamp).toLocaleDateString()} — ${formatDuration(entry.duration_s)}`}
+                      className="group relative flex flex-col items-center"
+                    >
+                      <div className={cn(
+                        'rounded-full border-2 transition-transform group-hover:scale-150',
+                        isLast ? 'size-3' : 'size-2.5',
+                        ringColor,
+                      )} />
+                      <span className="absolute -bottom-5 hidden group-hover:block text-[10px] text-muted-foreground whitespace-nowrap">
+                        {new Date(entry.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="flex justify-between mt-2 pt-1">
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(historyStats.timeline[0].timestamp).toLocaleDateString()}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(historyStats.timeline[historyStats.timeline.length - 1].timestamp).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {item.message && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <AlertTriangle className="size-3" />
+            Message
+          </p>
+          <pre className="rounded-lg bg-card border border-border p-3 text-sm font-mono text-foreground whitespace-pre-wrap break-words overflow-x-auto max-h-60 overflow-y-auto">
+            {item.message}
+          </pre>
+        </div>
+      )}
+
+      {item.trace && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <AlertTriangle className="size-3" />
+            Stack Trace
+          </p>
+          <pre className="rounded-lg bg-destructive-muted border border-destructive/20 p-3 text-sm font-mono text-destructive-foreground whitespace-pre-wrap break-words overflow-x-auto max-h-80 overflow-y-auto">
+            {item.trace}
+          </pre>
+        </div>
+      )}
+
+      {item.stdout && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <Terminal className="size-3" />
+            Standard Output
+          </p>
+          <pre className="rounded-lg bg-card border border-border p-3 text-sm font-mono text-foreground whitespace-pre-wrap break-words overflow-x-auto max-h-60 overflow-y-auto">
+            {item.stdout}
+          </pre>
+        </div>
+      )}
+
+      {item.stderr && (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <Terminal className="size-3" />
+            Standard Error
+          </p>
+          <pre className="rounded-lg bg-destructive-muted border border-destructive/20 p-3 text-sm font-mono text-destructive-foreground whitespace-pre-wrap break-words overflow-x-auto max-h-60 overflow-y-auto">
+            {item.stderr}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetadataGrid({ children }: { children: ReactNode }) {
+  const cols = 6
+  const childArray = useMemo(() => {
+    const arr: ReactNode[] = []
+    const flatten = (node: ReactNode) => {
+      if (Array.isArray(node)) {
+        node.forEach(flatten)
+      } else if (node != null && node !== false && node !== true) {
+        arr.push(node)
+      }
+    }
+    flatten(children)
+    return arr
+  }, [children])
+
+  const remainder = childArray.length % cols
+  const fillers = remainder > 0 ? cols - remainder : 0
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-px rounded-[12px] border border-[var(--wf-card-border)] bg-[var(--wf-card-border)] overflow-hidden">
+      {childArray}
+      {Array.from({ length: fillers }, (_, i) => (
+        <div key={`filler-${i}`} className="bg-[var(--wf-card-bg)]" />
+      ))}
+    </div>
+  )
+}
+
+function MetadataCell({ label, value, mono, truncate: shouldTruncate, valueClassName }: { label: string; value: string; mono?: boolean; truncate?: boolean; valueClassName?: string }) {
+  return (
+    <div className="bg-[var(--wf-card-bg)] px-4 py-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">{label}</p>
+      <p className={cn('text-sm font-medium text-foreground', mono && 'font-mono', shouldTruncate && 'truncate', valueClassName)} title={shouldTruncate ? value : undefined}>{value}</p>
+    </div>
+  )
+}
+
+function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
+      <p className={cn('text-sm text-foreground', mono && 'font-mono break-all')}>{value}</p>
+    </div>
+  )
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 0.001) return `${(seconds * 1_000_000).toFixed(0)}µs`
+  if (seconds < 1) return `${(seconds * 1000).toFixed(1)}ms`
+  if (seconds < 60) return `${seconds.toFixed(2)}s`
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}m ${secs.toFixed(1)}s`
 }
 
 function groupCheckItems(tool: string, items: RunCheck['items']) {
