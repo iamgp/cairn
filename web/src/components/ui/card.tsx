@@ -1,13 +1,19 @@
 import * as React from 'react'
+import { Card as PrimerCard } from '@primer/react/experimental'
 import { cn } from '../../lib/utils'
 
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+type CardProps = React.HTMLAttributes<HTMLDivElement> & {
+  padding?: 'none' | 'condensed' | 'normal'
+}
+
+export function Card({ className, padding = 'none', ...props }: CardProps) {
   return (
-    <div
+    <PrimerCard
       className={cn(
-        'rounded-xl border border-gray-200/80 bg-white/95 shadow-sm shadow-gray-950/5 dark:border-gray-800 dark:bg-gray-900/90 dark:shadow-black/10',
         className,
       )}
+      padding={padding}
+      borderRadius="medium"
       {...props}
     />
   )

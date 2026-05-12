@@ -1,50 +1,41 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { BaseStyles, ThemeProvider as PrimerThemeProvider } from '@primer/react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { hostSystemTheme } from './host-system-theme'
 
-type ThemeMode = 'light' | 'dark' | 'system'
 type ResolvedTheme = 'light' | 'dark'
 
-const THEME_STORAGE_KEY = 'theme-mode'
+function resolveSystemTheme(): ResolvedTheme {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
 
-const ThemeContext = createContext<{
-  mode: ThemeMode
-  resolvedTheme: ResolvedTheme
-  setMode: (mode: ThemeMode) => void
-}>({
-  mode: 'system',
-  resolvedTheme: 'light',
-  setMode: () => {},
-})
+  return hostSystemTheme ?? 'light'
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    if (typeof window === 'undefined') return 'system'
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
-    return 'system'
-  })
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)').matches : false,
-  )
-
-  const resolvedTheme: ResolvedTheme =
-    mode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : mode
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveSystemTheme())
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const listener = (event: MediaQueryListEvent) => setSystemPrefersDark(event.matches)
+    const listener = () => setResolvedTheme(resolveSystemTheme())
     media.addEventListener('change', listener)
+    listener()
     return () => media.removeEventListener('change', listener)
   }, [])
 
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('dark', resolvedTheme === 'dark')
-    root.dataset.themeMode = mode
-    window.localStorage.setItem(THEME_STORAGE_KEY, mode)
-  }, [mode, resolvedTheme])
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
+    document.documentElement.dataset.themeMode = 'system'
+  }, [resolvedTheme])
 
-  return <ThemeContext.Provider value={{ mode, resolvedTheme, setMode }}>{children}</ThemeContext.Provider>
+  return (
+    <PrimerThemeProvider
+      colorMode={resolvedTheme === 'dark' ? 'night' : 'day'}
+      dayScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      nightScheme="dark"
+    >
+      <BaseStyles>{children}</BaseStyles>
+    </PrimerThemeProvider>
+  )
 }
-
-export const useTheme = () => useContext(ThemeContext)
