@@ -1,82 +1,55 @@
-import { Link, Outlet, createRootRoute } from '@tanstack/react-router'
-import { useTheme } from '../lib/theme'
+import { Outlet, createRootRoute, useLocation, useNavigate } from '@tanstack/react-router'
 
 export const Route = createRootRoute({
   component: RootLayout,
 })
 
 function RootLayout() {
-  const { mode, setMode } = useTheme()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-[var(--wf-main-bg)] px-4 py-4 sm:px-8 sm:py-10 lg:px-12">
-      <main className="mx-auto w-full">
-        <header className="no-print mb-6 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-[var(--bgColor-muted)]">
+      <header className="no-print border-b border-[var(--borderColor-default,#d0d7de)] bg-[var(--bgColor-default,#ffffff)] px-4 sm:px-6 lg:px-8">
+        <div className="flex min-h-16 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <div className="flex items-center gap-2.5">
-            <CairnLogo className="size-10 shrink-0 text-foreground" />
-            <h1 className="text-xl font-semibold text-foreground">Cairn Report</h1>
+            <CairnLogo className="size-7 shrink-0 text-foreground" />
+            <h1 className="text-base font-semibold leading-6 text-foreground">Cairn Report</h1>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto">
-            <nav className="inline-flex shrink-0 rounded-lg border border-[var(--wf-sidebar-border)] bg-[var(--wf-sidebar-bg)] p-1 text-sm">
-              <Link
-                to="/"
-                className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground [&.active]:bg-muted [&.active]:text-foreground"
-              >
-                Main Branch
-              </Link>
-              <Link
-                to="/pr"
-                className="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground [&.active]:bg-muted [&.active]:text-foreground"
-              >
-                Pull Requests
-              </Link>
-            </nav>
-
-            <div className="inline-flex shrink-0 rounded-lg border border-[var(--wf-sidebar-border)] bg-[var(--wf-sidebar-bg)] p-1 text-sm">
-              <ThemeModeButton
-                active={mode === 'light'}
-                onClick={() => setMode('light')}
-                label="Light"
-              />
-              <ThemeModeButton
-                active={mode === 'dark'}
-                onClick={() => setMode('dark')}
-                label="Dark"
-              />
-              <ThemeModeButton
-                active={mode === 'system'}
-                onClick={() => setMode('system')}
-                label="System"
-              />
-            </div>
-          </div>
-        </header>
+        </div>
+        <div className="flex items-center gap-4 overflow-x-auto">
+          <nav aria-label="Report views" className="header-nav">
+            <a
+              href="/#/"
+              aria-current={location.pathname === '/' ? 'page' : undefined}
+              className="header-nav-link"
+              onClick={(event) => {
+                event.preventDefault()
+                navigate({ to: '/', search: { group: '' } })
+              }}
+            >
+              Main Branch
+            </a>
+            <a
+              href="/#/pr"
+              aria-current={location.pathname === '/pr' ? 'page' : undefined}
+              className="header-nav-link"
+              onClick={(event) => {
+                event.preventDefault()
+                navigate({ to: '/pr', search: { group: '' } })
+              }}
+            >
+              Pull Requests
+            </a>
+          </nav>
+        </div>
+        </div>
+      </header>
+      <main className="mx-auto w-full px-4 py-4 sm:px-8 sm:py-8 lg:px-12">
         <Outlet />
       </main>
     </div>
-  )
-}
-
-function ThemeModeButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-3 py-1.5 transition-colors ${
-        active
-          ? 'bg-muted text-foreground'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {label}
-    </button>
   )
 }
 

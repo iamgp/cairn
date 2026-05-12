@@ -2,6 +2,7 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { Check, Clock, X } from 'lucide-react'
 import { runDuration, runStatus, type RunRecord } from '../lib/history'
 import { relativeTime } from '../lib/utils'
+import { Badge } from './ui/badge'
 
 const col = createColumnHelper<RunRecord>()
 
@@ -10,27 +11,27 @@ function StatusBadge({ status }: { status: string }) {
 
   if (s === 'passed') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-muted px-2.5 py-1 text-xs font-medium text-success-foreground">
+      <Badge variant="success" className="inline-flex items-center gap-1.5">
         <Check className="size-3.5" strokeWidth={2.5} />
         Passed
-      </span>
+      </Badge>
     )
   }
 
   if (s === 'failed' || s === 'error') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive-muted px-2.5 py-1 text-xs font-medium text-destructive">
+      <Badge variant="destructive" className="inline-flex items-center gap-1.5">
         <X className="size-3.5" strokeWidth={2.5} />
         {s === 'error' ? 'Error' : 'Failed'}
-      </span>
+      </Badge>
     )
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-muted px-2.5 py-1 text-xs font-medium text-warning-foreground">
+    <Badge variant="warning" className="inline-flex items-center gap-1.5">
       <Clock className="size-3.5" strokeWidth={2.5} />
       Skipped
-    </span>
+    </Badge>
   )
 }
 
@@ -53,9 +54,15 @@ export const runTableColumns = [
     size: 200,
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <span className="font-medium text-foreground">{row.original.run_id}</span>
+        <a
+          href={`/#/run?run=${encodeURIComponent(String(row.original.run_id))}`}
+          className="font-medium text-[var(--fgColor-accent,#0969da)] no-underline hover:underline"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {row.original.run_id}
+        </a>
         {row.original.pr != null ? (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">PR #{row.original.pr}</span>
+          <Badge variant="outline">PR #{row.original.pr}</Badge>
         ) : null}
       </div>
     ),
@@ -78,9 +85,9 @@ export const runTableColumns = [
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1.5">
         {(row.original.checks || []).map((check) => (
-          <span key={check.tool} className="rounded-full border border-border px-2 py-0.5 text-xs text-foreground">
+          <Badge key={check.tool} variant="outline">
             {check.tool}
-          </span>
+          </Badge>
         ))}
       </div>
     ),

@@ -1,7 +1,14 @@
+import { Button, Heading, Select, Text, TextInput } from '@primer/react'
+import {
+  CheckCircleIcon,
+  CircleSlashIcon,
+  IssueOpenedIcon,
+  XCircleIcon,
+} from '@primer/octicons-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
 import { DataTable } from './data-table'
 import { runTableColumns } from './run-table-columns'
+import { Card } from './ui/card'
 import {
   defaultFilters,
   filterRuns,
@@ -19,7 +26,6 @@ type RunsPageContentProps = {
 }
 
 export function RunsPageContent({ title, description, runs, group }: RunsPageContentProps) {
-  const navigate = useNavigate()
   const [filters, setFilters] = useState(defaultFilters)
   const options = useRunOptions(runs)
 
@@ -55,8 +61,10 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <Heading as="h1" sx={{ fontSize: 4 }}>
+          {title}
+        </Heading>
+        <Text sx={{ color: 'fg.muted' }}>{description}</Text>
       </header>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -68,12 +76,12 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
 
       <section>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <input
-            type="text"
+          <TextInput
             value={filters.query}
             onChange={(e) => updateFilter('query', e.target.value)}
             placeholder="Search run ID, SHA, branch, checker"
-            className="h-9 w-full sm:min-w-[220px] sm:flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+            block
+            sx={{ flex: '1 1 220px' }}
           />
 
           <FilterSelect
@@ -117,12 +125,11 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           />
 
           {hasActiveFilters ? (
-            <button
+            <Button
               onClick={() => setFilters(defaultFilters)}
-              className="h-9 rounded-md border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
             >
               Clear
-            </button>
+            </Button>
           ) : null}
         </div>
 
@@ -130,7 +137,9 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           columns={runTableColumns}
           data={filtered}
           pageSize={50}
-          onRowClick={(run) => navigate({ to: '/run', search: { run: run.run_id } })}
+          onRowClick={(run) => {
+            window.location.hash = `/run?run=${encodeURIComponent(String(run.run_id))}`
+          }}
         />
       </section>
     </div>
@@ -147,17 +156,16 @@ function FilterSelect({
   options: { value: string; label: string }[]
 }) {
   return (
-    <select
+    <Select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
     >
       {options.map((option) => (
-        <option key={option.value} value={option.value}>
+        <Select.Option key={option.value} value={option.value}>
           {option.label}
-        </option>
+        </Select.Option>
       ))}
-    </select>
+    </Select>
   )
 }
 
@@ -170,19 +178,46 @@ function SummaryCard({
   value: number
   tone?: 'default' | 'success' | 'destructive' | 'warning'
 }) {
-  const valueClassName =
+  const Icon =
     tone === 'success'
-      ? 'text-success'
+      ? CheckCircleIcon
       : tone === 'destructive'
-        ? 'text-destructive'
+        ? XCircleIcon
         : tone === 'warning'
-          ? 'text-warning'
-          : 'text-foreground'
+          ? CircleSlashIcon
+          : IssueOpenedIcon
+
+  const valueColor =
+    tone === 'success'
+      ? 'success.fg'
+      : tone === 'destructive'
+        ? 'danger.fg'
+        : tone === 'warning'
+          ? 'attention.fg'
+          : 'fg.default'
+  const iconColor =
+    tone === 'success'
+      ? 'var(--fgColor-success)'
+      : tone === 'destructive'
+        ? 'var(--fgColor-danger)'
+        : tone === 'warning'
+          ? 'var(--fgColor-attention)'
+          : 'var(--fgColor-muted)'
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${valueClassName}`}>{value}</p>
-    </div>
+    <Card padding="normal" className="min-h-[88px]">
+      <div className="flex items-start justify-between gap-3">
+        <Text
+          as="p"
+          sx={{ color: 'fg.muted', fontSize: 0, fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' }}
+        >
+          {label}
+        </Text>
+        <Icon aria-hidden fill={iconColor} size={16} />
+      </div>
+      <Text as="p" sx={{ color: valueColor, fontSize: 5, fontWeight: 600, lineHeight: 'condensed', mt: 2 }}>
+        {value.toLocaleString()}
+      </Text>
+    </Card>
   )
 }

@@ -1,18 +1,24 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { Heading, Stack, Text, TextInput, Truncate } from '@primer/react'
 import type { ReactNode } from 'react'
 import { useMemo, useState, useCallback } from 'react'
 import { Check, X, Clock, Search, Download, ChevronRight, Tag, Terminal, AlertTriangle } from 'lucide-react'
 import { runDuration, runStatus, useHistoryRuns, type RunCheck, type RunItem, type RunRecord } from '../lib/history'
 import { cn, formatDayLabel, relativeTime } from '../lib/utils'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
-import { Input } from '../components/ui/input'
+import { Badge } from '../components/ui/badge'
 
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import { ReportPdfDocument } from '../components/report-pdf'
 
 export const Route = createFileRoute('/run')({
   validateSearch: (search) => ({
-    run: typeof search.run === 'string' ? search.run : '',
+    run:
+      typeof search.run === 'string'
+        ? search.run
+        : typeof search.run === 'number'
+          ? String(search.run)
+          : '',
     sha: typeof search.sha === 'string' ? search.sha : '',
   }),
   component: RunsPage,
@@ -157,18 +163,24 @@ function ReportPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) 
   const pdfFilename = `cairn-report-${run.run_id}.pdf`
 
   return (
-    <div className="py-4">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Test Report</h1>
-          <StatusBadge status={status} />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Heading as="h1" sx={{ fontSize: 3 }}>
+              Test Report
+            </Heading>
+            <StatusBadge status={status} />
+          </div>
+          <Text as="p" sx={{ color: 'fg.muted', fontFamily: 'mono', fontSize: 1 }}>
+            {run.run_id}
+          </Text>
         </div>
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground truncate">{run.run_id}</p>
           <PDFDownloadLink
             document={<ReportPdfDocument run={run} />}
             fileName={pdfFilename}
-            className="no-print flex shrink-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            className="primer-pdf-link no-print"
           >
             {({ loading }) => (
               <>
@@ -202,17 +214,15 @@ function ReportPage({ run, allRuns }: { run: RunRecord; allRuns: RunRecord[] }) 
         {metadata.coverage?.function && <MetadataCell label="Function Coverage" value={metadata.coverage.function} />}
       </MetadataGrid>
 
-      <div className="relative mb-4 mt-8">
-        <div className="h-px bg-border mb-4" />
-        <div className="relative h-9">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Filter tests..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <div className="border-t border-[var(--borderColor-default,#d0d7de)] pt-4">
+        <TextInput
+          aria-label="Filter tests"
+          block
+          leadingVisual={Search}
+          placeholder="Filter tests..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
       </div>
 
       {filteredChecks.map((check) => (
@@ -226,29 +236,29 @@ function StatusBadge({ status }: { status: string }) {
   const s = (status || '').toLowerCase()
   if (s === 'passed') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-muted px-3 py-1 text-sm font-medium text-success-foreground">
+      <Badge variant="success" className="inline-flex items-center gap-1.5">
         <Check className="size-3.5" strokeWidth={2.5} />
         Passed
-      </span>
+      </Badge>
     )
   }
   if (s === 'failed' || s === 'error') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive-muted px-3 py-1 text-sm font-medium text-destructive">
+      <Badge variant="destructive" className="inline-flex items-center gap-1.5">
         <X className="size-3.5" strokeWidth={2.5} />
         {s === 'error' ? 'Error' : 'Failed'}
-      </span>
+      </Badge>
     )
   }
   if (s === 'skipped') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-muted px-3 py-1 text-sm font-medium text-warning-foreground">
+      <Badge variant="warning" className="inline-flex items-center gap-1.5">
         <Clock className="size-3.5" strokeWidth={2.5} />
         Skipped
-      </span>
+      </Badge>
     )
   }
-  return <span className="text-muted-foreground">{status}</span>
+  return <Badge variant="secondary">{status}</Badge>
 }
 
 function CheckReportSection({ check, testHistory }: { check: RunCheck; testHistory: TestHistoryMap }) {
@@ -274,65 +284,79 @@ function CheckReportSection({ check, testHistory }: { check: RunCheck; testHisto
 
   const displayItems = showGrouped ? grouped.flatMap(g => g.items) : items
 
+  if (!hasItems) {
+    return (
+      <section className="space-y-3">
+        <div>
+          <Heading as="h2" sx={{ fontSize: 2 }}>
+            {check.tool}
+          </Heading>
+          <Text as="p" sx={{ color: 'fg.muted', fontSize: 1 }}>
+            No issues{durationLabel}
+          </Text>
+        </div>
+        <div className="rounded-md border border-[var(--borderColor-default,#d0d7de)] bg-[var(--bgColor-default,#ffffff)] px-4 py-3">
+          <Text sx={{ color: 'fg.muted', fontSize: 1 }}>No issues found</Text>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <div className="mt-8">
-      <h2 className="text-lg font-semibold text-foreground mb-2">{check.tool}</h2>
-      <p className="text-sm text-muted-foreground mb-3">
+    <section className="space-y-3">
+      <div>
+        <Heading as="h2" sx={{ fontSize: 2 }}>
+          {check.tool}
+        </Heading>
+      <Text as="p" sx={{ color: 'fg.muted', fontSize: 1 }}>
         {hasItems 
           ? `${passedCount} passed, ${failedCount} failed, ${skippedCount} skipped${durationLabel}`
           : `No issues${durationLabel}`
         }
-      </p>
+      </Text>
+      </div>
 
-      <div className="overflow-x-auto rounded-[12px]">
-        <Table>
+      <div className="overflow-x-auto report-check-table">
+        <Table gridTemplateColumns="40px 120px minmax(0, 1.6fr) 96px minmax(0, 1fr)">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-8 font-semibold text-foreground"></TableHead>
-              <TableHead className="w-24 sm:w-32 font-semibold text-foreground">Status</TableHead>
-              <TableHead className="font-semibold text-foreground">Test</TableHead>
-              <TableHead className="w-20 sm:w-24 font-semibold text-foreground">Duration</TableHead>
-              <TableHead className="font-semibold text-foreground">Message</TableHead>
+              <TableHead aria-label="Expand" />
+              <TableHead>Status</TableHead>
+              <TableHead>Test</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Message</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {hasItems ? (
-              displayItems.map((item, idx) => {
-                const itemKey = `${item.id}-${idx}`
-                const isExpanded = expandedItems.has(itemKey)
-                const s = (item.status || '').toLowerCase()
-                const isPassed = s === 'passed'
-                const isFailed = s === 'failed' || s === 'error'
-                const isSkipped = s === 'skipped'
-                const hasDetails = true
-                const history = testHistory.get(`${check.tool}::${item.id}`)
-                return (
-                  <ItemRow
-                    key={itemKey}
-                    item={item}
-                    itemKey={itemKey}
-                    isExpanded={isExpanded}
-                    isPassed={isPassed}
-                    isFailed={isFailed}
-                    isSkipped={isSkipped}
-                    hasDetails={hasDetails}
-                    statusLabel={s}
-                    onToggle={toggleItem}
-                    history={history}
-                  />
-                )
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No issues found
-                </TableCell>
-              </TableRow>
-            )}
+            {displayItems.map((item, idx) => {
+              const itemKey = `${item.id}-${idx}`
+              const isExpanded = expandedItems.has(itemKey)
+              const s = (item.status || '').toLowerCase()
+              const isPassed = s === 'passed'
+              const isFailed = s === 'failed' || s === 'error'
+              const isSkipped = s === 'skipped'
+              const hasDetails = true
+              const history = testHistory.get(`${check.tool}::${item.id}`)
+              return (
+                <ItemRow
+                  key={itemKey}
+                  item={item}
+                  itemKey={itemKey}
+                  isExpanded={isExpanded}
+                  isPassed={isPassed}
+                  isFailed={isFailed}
+                  isSkipped={isSkipped}
+                  hasDetails={hasDetails}
+                  statusLabel={s}
+                  onToggle={toggleItem}
+                  history={history}
+                />
+              )
+            })}
           </TableBody>
         </Table>
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -368,36 +392,38 @@ function ItemRow({
         )}
         onClick={() => hasDetails && onToggle(itemKey)}
       >
-        <TableCell className="w-8 px-2">
+        <TableCell className="flex items-center justify-center">
           {hasDetails && (
             <ChevronRight
               className={cn(
-                'size-4 text-muted-foreground transition-transform duration-150',
+                'size-4 shrink-0 text-[var(--fgColor-muted,#57606a)] transition-transform duration-150',
                 isExpanded && 'rotate-90',
               )}
             />
           )}
         </TableCell>
         <TableCell>
-          {isPassed && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-success-muted px-2 py-0.5 text-xs font-medium text-success-foreground">
-              <Check className="size-3" strokeWidth={2.5} />
-              Pass
-            </span>
-          )}
-          {isFailed && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-destructive-muted px-2 py-0.5 text-xs font-medium text-destructive">
-              <X className="size-3" strokeWidth={2.5} />
-              Fail
-            </span>
-          )}
-          {isSkipped && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-warning-muted px-2 py-0.5 text-xs font-medium text-warning-foreground">
-              <Clock className="size-3" strokeWidth={2.5} />
-              Skip
-            </span>
-          )}
-          {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{statusLabel}</span>}
+          <div className="flex items-center">
+            {isPassed && (
+              <Badge variant="success" className="inline-flex items-center gap-1">
+                <Check className="size-3" strokeWidth={2.5} />
+                Passed
+              </Badge>
+            )}
+            {isFailed && (
+              <Badge variant="destructive" className="inline-flex items-center gap-1">
+                <X className="size-3" strokeWidth={2.5} />
+                Failed
+              </Badge>
+            )}
+            {isSkipped && (
+              <Badge variant="warning" className="inline-flex items-center gap-1">
+                <Clock className="size-3" strokeWidth={2.5} />
+                Skipped
+              </Badge>
+            )}
+            {!isPassed && !isFailed && !isSkipped && <span className="text-muted-foreground">{statusLabel}</span>}
+          </div>
         </TableCell>
         <TableCell className="font-mono text-foreground">{item.id}</TableCell>
         <TableCell className="font-mono text-muted-foreground">
@@ -406,10 +432,17 @@ function ItemRow({
         <TableCell className="max-w-md truncate text-muted-foreground">{item.message || '-'}</TableCell>
       </TableRow>
       {isExpanded && (
-        <TableRow>
-          <TableCell colSpan={5} className="!p-0 !border-t-0">
+        <TableRow
+          className="report-item-detail-row"
+          style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' }}
+        >
+          <div
+            role="cell"
+            className="report-item-detail-cell"
+            style={{ gridColumn: '1' }}
+          >
             <ItemDetailPanel item={item} history={history} />
-          </TableCell>
+          </div>
         </TableRow>
       )}
     </>
@@ -435,20 +468,17 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
     const skipped = history.filter(h => h.status === 'skipped').length
     const durations = history.filter(h => h.duration_s > 0).map(h => h.duration_s)
     const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0
-    const minDuration = durations.length > 0 ? Math.min(...durations) : 0
-    const maxDuration = durations.length > 0 ? Math.max(...durations) : 0
     const passRate = total > 0 ? (passed / total) * 100 : 0
-    const failRate = total > 0 ? (failed / total) * 100 : 0
-    // sorted oldest → newest for the timeline
-    const timeline = [...history].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    return { total, passed, failed, skipped, avgDuration, minDuration, maxDuration, passRate, failRate, timeline }
+    const recent = [...history].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    return { total, passed, failed, skipped, avgDuration, passRate, recent }
   }, [history])
 
   return (
-    <div className="bg-accent/20 px-6 py-4 space-y-4 border-t border-border/50">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <DetailField label="Test ID" value={item.id} mono />
+    <div className="border-x border-b border-[var(--borderColor-default,#d0d7de)] bg-[var(--bgColor-muted,#f6f8fa)]">
+      <div className="grid grid-cols-[40px_120px_minmax(0,1.6fr)_96px_minmax(0,1fr)] gap-0 py-3">
+        <span aria-hidden="true" />
         <DetailField label="Status" value={item.status} />
+        <DetailField label="Test ID" value={item.id} mono />
         <DetailField
           label="Duration"
           value={item.duration_s != null ? formatDuration(item.duration_s) : '-'}
@@ -456,19 +486,16 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
         {item.suite && <DetailField label="Suite" value={item.suite} mono />}
         {sourceLabel && <DetailField label="Source" value={sourceLabel} mono />}
         {item.tags && item.tags.length > 0 && (
-          <div>
+          <div className="px-3">
             <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
               <Tag className="size-3" />
               Tags
             </p>
             <div className="flex flex-wrap gap-1">
               {item.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center rounded-full bg-info-muted px-2 py-0.5 text-xs font-medium text-info-foreground"
-                >
+                <Badge key={tag} variant="secondary">
                   {tag}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
@@ -476,63 +503,48 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
       </div>
 
       {historyStats && (
-        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            History ({historyStats.total} runs)
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <DetailField label="Pass Rate" value={`${historyStats.passRate.toFixed(0)}%`} />
-            <DetailField label="Fail Rate" value={`${historyStats.failRate.toFixed(0)}%`} />
-            <DetailField label="Avg Duration" value={formatDuration(historyStats.avgDuration)} />
-            <DetailField label="Min Duration" value={formatDuration(historyStats.minDuration)} />
-            <DetailField label="Max Duration" value={formatDuration(historyStats.maxDuration)} />
-            <DetailField label="Runs" value={`${historyStats.passed}✓  ${historyStats.failed}✗  ${historyStats.skipped}⊘`} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Result Timeline</p>
-            <div className="relative flex items-center py-1">
-              <div className="absolute left-1 right-1 top-1/2 h-px bg-border" />
-              <div className="relative flex items-center justify-between w-full">
-                {historyStats.timeline.map((entry, i) => {
-                  const s = entry.status.toLowerCase()
-                  const ringColor =
-                    s === 'passed' ? 'border-success bg-success' :
-                    s === 'failed' || s === 'error' ? 'border-destructive bg-destructive' :
-                    s === 'skipped' ? 'border-warning bg-warning' : 'border-muted-foreground bg-muted-foreground'
-                  const isLast = i === historyStats.timeline.length - 1
-                  return (
-                    <div
-                      key={`${entry.runId}-${i}`}
-                      title={`${entry.status} — ${new Date(entry.timestamp).toLocaleDateString()} — ${formatDuration(entry.duration_s)}`}
-                      className="group relative flex flex-col items-center"
-                    >
-                      <div className={cn(
-                        'rounded-full border-2 transition-transform group-hover:scale-150',
-                        isLast ? 'size-3' : 'size-2.5',
-                        ringColor,
-                      )} />
-                      <span className="absolute -bottom-5 hidden group-hover:block text-[10px] text-muted-foreground whitespace-nowrap">
-                        {new Date(entry.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+        <section>
+          <div className="grid grid-cols-[40px_120px_minmax(0,1.6fr)_96px_minmax(0,1fr)] items-center border-t border-[var(--borderColor-default,#d0d7de)] py-2">
+            <span aria-hidden="true" />
+            <div className="flex items-center gap-2 px-3">
+              <Text as="h3" sx={{ fontSize: 1, fontWeight: 600 }}>
+                History
+              </Text>
+              <Badge variant="outline">{historyStats.total} runs</Badge>
             </div>
-            <div className="flex justify-between mt-2 pt-1">
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(historyStats.timeline[0].timestamp).toLocaleDateString()}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(historyStats.timeline[historyStats.timeline.length - 1].timestamp).toLocaleDateString()}
-              </span>
-            </div>
+            <Text as="p" sx={{ color: 'fg.muted', fontSize: 0, gridColumn: '3 / -1', textAlign: 'right', paddingInline: 12 }}>
+              {historyStats.passRate.toFixed(0)}% pass rate · {historyStats.passed} passed · {historyStats.failed} failed · {historyStats.skipped} skipped · avg {formatDuration(historyStats.avgDuration)}
+            </Text>
           </div>
-        </div>
+          <div className="max-h-72 overflow-y-auto border-y border-[var(--borderColor-default,#d0d7de)] bg-[var(--bgColor-default,#ffffff)]">
+            {historyStats.recent.map((entry) => (
+              <a
+                key={`${entry.runId}-${entry.timestamp}`}
+                href={`/#/run?run=${encodeURIComponent(entry.runId)}`}
+                className="grid grid-cols-[40px_120px_minmax(0,1.6fr)_96px_minmax(0,1fr)] items-center gap-0 border-t border-[var(--borderColor-default,#d0d7de)] py-1.5 text-[var(--fgColor-default,#24292f)] no-underline first:border-t-0 hover:bg-[var(--control-transparent-bgColor-hover,#f6f8fa)]"
+              >
+                <span aria-hidden="true" />
+                <span className="justify-self-start px-3">
+                  <StatusBadge status={entry.status} />
+                </span>
+                <span className="min-w-0 px-3">
+                  <span className="truncate font-mono text-sm">{entry.runId}</span>
+                  <span className="ml-3 truncate text-xs text-[var(--fgColor-muted,#57606a)]">
+                    {new Date(entry.timestamp).toLocaleString()}
+                  </span>
+                </span>
+                <span className="px-3 text-right font-mono text-xs text-[var(--fgColor-muted,#57606a)]">
+                  {formatDuration(entry.duration_s)}
+                </span>
+                <span aria-hidden="true" />
+              </a>
+            ))}
+          </div>
+        </section>
       )}
 
       {item.message && (
-        <div>
+        <div className="px-3 py-3">
           <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <AlertTriangle className="size-3" />
             Message
@@ -544,7 +556,7 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
       )}
 
       {item.trace && (
-        <div>
+        <div className="px-3 py-3">
           <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <AlertTriangle className="size-3" />
             Stack Trace
@@ -556,7 +568,7 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
       )}
 
       {item.stdout && (
-        <div>
+        <div className="px-3 py-3">
           <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <Terminal className="size-3" />
             Standard Output
@@ -568,7 +580,7 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
       )}
 
       {item.stderr && (
-        <div>
+        <div className="px-3 py-3">
           <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
             <Terminal className="size-3" />
             Standard Error
@@ -583,7 +595,6 @@ function ItemDetailPanel({ item, history }: { item: RunItem; history?: TestHisto
 }
 
 function MetadataGrid({ children }: { children: ReactNode }) {
-  const cols = 6
   const childArray = useMemo(() => {
     const arr: ReactNode[] = []
     const flatten = (node: ReactNode) => {
@@ -597,31 +608,63 @@ function MetadataGrid({ children }: { children: ReactNode }) {
     return arr
   }, [children])
 
-  const remainder = childArray.length % cols
-  const fillers = remainder > 0 ? cols - remainder : 0
-
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-px rounded-[12px] border border-[var(--wf-card-border)] bg-[var(--wf-card-border)] overflow-hidden">
+    <Stack
+      as="dl"
+      direction="horizontal"
+      gap="normal"
+      wrap="wrap"
+      paddingBlock="condensed"
+      className="metadata-summary"
+    >
       {childArray}
-      {Array.from({ length: fillers }, (_, i) => (
-        <div key={`filler-${i}`} className="bg-[var(--wf-card-bg)]" />
-      ))}
-    </div>
+    </Stack>
   )
 }
 
 function MetadataCell({ label, value, mono, truncate: shouldTruncate, valueClassName }: { label: string; value: string; mono?: boolean; truncate?: boolean; valueClassName?: string }) {
   return (
-    <div className="bg-[var(--wf-card-bg)] px-4 py-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">{label}</p>
-      <p className={cn('text-sm font-medium text-foreground', mono && 'font-mono', shouldTruncate && 'truncate', valueClassName)} title={shouldTruncate ? value : undefined}>{value}</p>
+    <div className="metadata-summary-item">
+      <Text as="dt" sx={{ color: 'fg.subtle', fontSize: 0, fontWeight: 500, lineHeight: '16px' }}>
+        {label}
+      </Text>
+      <Text
+        as="dd"
+        className={cn(
+          'metadata-summary-value',
+          mono && 'font-mono',
+          shouldTruncate && 'metadata-summary-value-truncate',
+          valueClassName,
+        )}
+        sx={{ color: 'fg.default', fontSize: 1, lineHeight: '20px', margin: 0 }}
+      >
+        {shouldTruncate ? (
+          <Truncate
+            inline
+            maxWidth="100%"
+            title={value}
+            className={cn('metadata-summary-truncate', mono && 'font-mono')}
+          >
+            {value}
+          </Truncate>
+        ) : (
+          <span
+            className={cn(
+              'metadata-summary-value-text',
+              mono && 'font-mono',
+            )}
+          >
+            {value}
+          </span>
+        )}
+      </Text>
     </div>
   )
 }
 
 function DetailField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
+    <div className="min-w-0 px-3">
       <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
       <p className={cn('text-sm text-foreground', mono && 'font-mono break-all')}>{value}</p>
     </div>
@@ -729,7 +772,8 @@ function RunListPage({ runs }: { runs: RunRecord[] }) {
                   )} />
                   <Link
                     to="/run"
-                    search={{ run: run.run_id }}
+                    search={{ run: String(run.run_id) }}
+                    href={`/#/run?run=${encodeURIComponent(String(run.run_id))}`}
                     className="block rounded-lg border border-border bg-card p-3 hover:border-input hover:shadow-sm transition-all"
                   >
                     <div className="flex items-start gap-2">

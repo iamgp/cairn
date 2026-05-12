@@ -1,3 +1,4 @@
+import { Button, Text } from '@primer/react'
 import { Fragment, useState } from 'react'
 import {
   flexRender,
@@ -51,20 +52,25 @@ export function DataTable<T>({
 
   const pageCount = table.getPageCount()
   const pageIndex = table.getState().pagination.pageIndex
+  const gridTemplateColumns = table
+    .getVisibleLeafColumns()
+    .map((column) => {
+      if (column.id === 'run_id') return 'minmax(180px, 1fr)'
+      if (column.id === 'checkers') return 'minmax(260px, 1.2fr)'
+      return `${column.getSize()}px`
+    })
+    .join(' ')
 
   return (
-    <div className="bg-transparent overflow-x-auto">
-      <Table>
+    <div>
+      <Table gridTemplateColumns={gridTemplateColumns}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className={cn(
-                    'text-sm font-semibold text-muted-foreground',
-                    header.column.getCanSort() && 'cursor-pointer select-none hover:text-foreground',
-                  )}
+                  className={cn(header.column.getCanSort() && 'cursor-pointer select-none')}
                   style={{ minWidth: header.getSize() !== 150 ? header.getSize() : undefined }}
                   onClick={header.column.getToggleSortingHandler()}
                 >
@@ -82,8 +88,8 @@ export function DataTable<T>({
         <TableBody>
           {table.getRowModel().rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="py-8 text-center text-sm text-muted-foreground">
-                No data.
+              <TableCell colSpan={columns.length}>
+                <Text sx={{ color: 'fg.muted' }}>No data.</Text>
               </TableCell>
             </TableRow>
           ) : (
@@ -93,7 +99,6 @@ export function DataTable<T>({
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                   className={cn(
                     onRowClick && 'cursor-pointer',
-                    'transition-colors hover:bg-[var(--wf-card-header-bg)]',
                     getRowClassName?.(row),
                   )}
                 >
@@ -111,25 +116,25 @@ export function DataTable<T>({
       </Table>
 
       {pageCount > 1 && (
-        <div className="mt-2 flex items-center justify-between px-2 py-2 text-sm text-muted-foreground">
-          <span>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <Text sx={{ color: 'fg.muted', fontSize: 1 }}>
             Page {pageIndex + 1} of {pageCount} · {data.length} rows
-          </span>
+          </Text>
           <div className="flex gap-1.5">
-            <button
+            <Button
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="rounded-lg border border-[var(--wf-card-border)] bg-[var(--wf-card-bg)] px-3 py-1.5 font-medium disabled:opacity-40 hover:bg-[var(--wf-card-header-bg)]"
+              size="small"
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="rounded-lg border border-[var(--wf-card-border)] bg-[var(--wf-card-bg)] px-3 py-1.5 font-medium disabled:opacity-40 hover:bg-[var(--wf-card-header-bg)]"
+              size="small"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       )}
