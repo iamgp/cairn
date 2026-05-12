@@ -3,7 +3,7 @@ import { Label, type LabelProps } from '@primer/react'
 
 type BadgeVariant = 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'
 
-type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
+type BadgeProps = Omit<React.ComponentPropsWithoutRef<typeof Label>, 'variant'> & {
   variant?: BadgeVariant
 }
 
@@ -22,7 +22,7 @@ export function Badge({ className, variant, children, ...props }: BadgeProps) {
       className={className}
       variant={variantMap[variant ?? 'default']}
       size="large"
-      {...props as LabelProps}
+      {...props}
     >
       {children}
     </Label>

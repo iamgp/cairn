@@ -24,8 +24,8 @@ function TableBody(props: React.ComponentProps<'tbody'>) {
   return <PrimerTable.Body {...props} />
 }
 
-function TableFooter({ className: _className, ...props }: React.ComponentProps<'tfoot'>) {
-  return <tfoot {...props} />
+function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
+  return <tfoot className={className} {...props} />
 }
 
 function TableRow(props: React.ComponentProps<'tr'>) {

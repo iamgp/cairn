@@ -5,11 +5,11 @@ import { hostSystemTheme } from './host-system-theme'
 type ResolvedTheme = 'light' | 'dark'
 
 function resolveSystemTheme(): ResolvedTheme {
-  const prefersDark =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
 
-  return prefersDark || hostSystemTheme === 'dark' ? 'dark' : 'light'
+  return hostSystemTheme ?? 'light'
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

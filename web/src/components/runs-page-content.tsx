@@ -85,6 +85,7 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           />
 
           <FilterSelect
+            aria-label="Filter by status"
             value={filters.status}
             onChange={(v) => updateFilter('status', v)}
             options={[
@@ -98,6 +99,7 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           />
 
           <FilterSelect
+            aria-label="Filter by checker"
             value={filters.checker}
             onChange={(v) => updateFilter('checker', v)}
             options={options.checkers.map((value) => ({
@@ -107,6 +109,7 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           />
 
           <FilterSelect
+            aria-label="Filter by branch"
             value={filters.branch}
             onChange={(v) => updateFilter('branch', v)}
             options={options.branches.map((value) => ({
@@ -116,6 +119,7 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
           />
 
           <FilterSelect
+            aria-label="Filter by PR"
             value={filters.pr}
             onChange={(v) => updateFilter('pr', v)}
             options={options.prs.map((value) => ({
@@ -147,16 +151,19 @@ export function RunsPageContent({ title, description, runs, group }: RunsPageCon
 }
 
 function FilterSelect({
+  'aria-label': ariaLabel,
   value,
   onChange,
   options,
 }: {
+  'aria-label': string
   value: string
   onChange: (value: string) => void
   options: { value: string; label: string }[]
 }) {
   return (
     <Select
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

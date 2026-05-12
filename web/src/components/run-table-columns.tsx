@@ -8,6 +8,7 @@ const col = createColumnHelper<RunRecord>()
 
 function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase()
+  const label = status || 'Unknown'
 
   if (s === 'passed') {
     return (
@@ -30,7 +31,7 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <Badge variant="warning" className="inline-flex items-center gap-1.5">
       <Clock className="size-3.5" strokeWidth={2.5} />
-      Skipped
+      {label}
     </Badge>
   )
 }

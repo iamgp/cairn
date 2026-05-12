@@ -1,1 +1,1 @@
-export const hostSystemTheme = 'dark' as const
+export const hostSystemTheme: 'light' | 'dark' | undefined = undefined
