@@ -34,7 +34,7 @@ jobs:
           collect-config: cairn.toml
 ```
 
-This is enough for the default flow: collect -> ingest -> build report -> push `gh-pages` -> deploy Pages.
+This is enough for the default flow: collect -> ingest -> render report -> push `gh-pages` -> deploy Pages.
 
 ## Common Usage
 
@@ -131,7 +131,7 @@ If `post-pr-comment: "false"`, `pull-requests` is not required.
 - `[project]` metadata
 - `[history]` pruning policy (`max_days`, `max_runs`)
 - `[pr_comment]` rendering toggles
-- `[[checkers]]` adapter definitions
+- `[[checkers]]` adapter definitions, including optional inputs with `required = false`
 
 Adapter mappings/examples: [docs/adapters.md](./docs/adapters.md)
 
@@ -148,6 +148,18 @@ scripts/release.sh v0.2.3
 
 The script builds all supported OS/arch tarballs and uploads them to the GitHub release
 for that tag (creating the release first if needed).
+
+## Report Assets
+
+Cairn consumers do not install Node or build the report app. Release builds prebuild
+`web/.output/public` and package those static assets with the `cairn` binary.
+
+When changing `web/`, refresh local embedded assets before testing the rendered CLI output:
+
+```bash
+scripts/sync-web-assets.sh
+go test ./...
+```
 
 ## Marketplace Note
 

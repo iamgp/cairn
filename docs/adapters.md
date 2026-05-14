@@ -88,3 +88,19 @@ tags = "labels"
 - Arrays are supported, for example `results[0].status`.
 - Missing item IDs fall back to generated IDs (`item-N`).
 - Missing check duration is computed as sum of item durations.
+
+## Optional Checker Inputs
+
+By default, missing checker input files fail collection. For matrix jobs or artifacts that
+may legitimately be absent, set `required = false`.
+
+```toml
+[[checkers]]
+id = "pytest-3.13"
+adapter = "junit_xml"
+input = "cairn-artifacts/pytest-3.13.xml"
+required = false
+missing_status = "skipped"
+```
+
+Supported `missing_status` values are `skipped`, `failed`, and `error`.

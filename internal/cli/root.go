@@ -12,6 +12,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.AddCommand(newCollectCommand())
 	rootCmd.AddCommand(newCommentCommand())
 	rootCmd.AddCommand(newPruneCommand())
+	rootCmd.AddCommand(newRenderCommand())
 	rootCmd.AddCommand(newInitCommand())
 	rootCmd.AddCommand(newCheckCommand())
 

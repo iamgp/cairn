@@ -359,17 +359,11 @@ runs:
           cairn "${prune_args[@]}"
         fi
 
-    - name: Setup Node for web report
-      uses: actions/setup-node@v4
-      with:
-        node-version: "24"
-
-    - name: Build report web assets
+    - name: Render report web assets
       shell: bash
       run: |
         set -euo pipefail
 
-        action_root="${{ github.action_path }}"
         base_pages_dir="${{ github.workspace }}/gh-pages"
         pages_subdir="${{ inputs.pages-subdir }}"
         pages_subdir="${pages_subdir#/}"
@@ -380,15 +374,7 @@ runs:
         fi
         mkdir -p "${pages_dir}"
 
-        if [ -f "${action_root}/web/package.json" ]; then
-          cd "${action_root}/web"
-          npm ci --no-audit --no-fund
-          npm run build:pages
-          cp -R .output/public/. "${pages_dir}/"
-        else
-          echo "Missing web report sources at ${action_root}/web; cannot build TanStack report assets." >&2
-          exit 1
-        fi
+        cairn render --pages-dir "${pages_dir}"
 
     - name: Commit and push gh-pages changes
       id: commit-pages

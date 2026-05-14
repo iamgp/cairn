@@ -38,13 +38,8 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"Either ingest-file or collect-config must be provided.",
 		"cairn collect --config \"${collect_config}\" --out \"${collect_out}\"",
 		"cairn ingest \"${{ steps.prepare-run-record.outputs.path }}\" --pages-dir \"${publish_dir}\"",
-		"uses: actions/setup-node@v4",
-		"node-version: \"24\"",
-		"npm ci --no-audit --no-fund",
-		"npm run build:pages",
 		"pages_subdir=\"${{ inputs.pages-subdir }}\"",
-		"cp -R .output/public/. \"${pages_dir}/\"",
-		"cannot build TanStack report assets",
+		"cairn render --pages-dir \"${pages_dir}\"",
 		"prune_args=(prune --pages-dir \"${publish_dir}\")",
 		"git add -A",
 		"git push origin \"HEAD:${{ inputs.gh-pages-branch }}\"",
@@ -61,5 +56,27 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		if !strings.Contains(content, needle) {
 			t.Fatalf("action.yml missing expected content: %q", needle)
 		}
+	}
+}
+
+func TestActionDoesNotBuildWebAssetsInConsumerRun(t *testing.T) {
+	raw, err := os.ReadFile("../../action.yml")
+	if err != nil {
+		t.Fatalf("read action.yml: %v", err)
+	}
+
+	content := string(raw)
+	for _, forbidden := range []string{
+		"actions/setup-node",
+		"npm ci",
+		"npm run build:pages",
+	} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("action.yml should not contain consumer web build step %q", forbidden)
+		}
+	}
+
+	if !strings.Contains(content, "cairn render") {
+		t.Fatal("action.yml should render report assets through the cairn CLI")
 	}
 }
