@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -29,6 +30,25 @@ type commentOptions struct {
 type commentRenderOptions struct {
 	showCoverage  bool
 	showPerMatrix bool
+}
+
+type commentSummary struct {
+	Status    string
+	Total     int
+	Passed    int
+	Failed    int
+	Skipped   int
+	DurationS float64
+}
+
+type checkerCommentSummary struct {
+	Tool      string
+	Status    string
+	Passed    int
+	Failed    int
+	Skipped   int
+	Total     int
+	DurationS float64
 }
 
 func newCommentCommand() *cobra.Command {
@@ -205,6 +225,88 @@ func loadBaselineRun(pagesDir, branch string) (*Run, error) {
 	return findBaselineRun(runs, branch), nil
 }
 
+func normalizeCommentStatus(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "pass", "passed", "success", "successful":
+		return "passed"
+	case "fail", "failed", "failure":
+		return "failed"
+	case "error", "errored":
+		return "error"
+	case "skip", "skipped":
+		return "skipped"
+	case "cancel", "cancelled", "canceled":
+		return "cancelled"
+	default:
+		if strings.TrimSpace(status) == "" {
+			return "unknown"
+		}
+		return strings.ToLower(strings.TrimSpace(status))
+	}
+}
+
+func buildCommentSummary(run Run) commentSummary {
+	summary := commentSummary{Status: "passed"}
+	for _, check := range run.Checks {
+		checkSummary := buildCheckerCommentSummary(check)
+		summary.Total += checkSummary.Total
+		summary.Passed += checkSummary.Passed
+		summary.Failed += checkSummary.Failed
+		summary.Skipped += checkSummary.Skipped
+		summary.DurationS += checkSummary.DurationS
+		summary.Status = worstCommentStatus(summary.Status, checkSummary.Status)
+	}
+	if len(run.Checks) == 0 {
+		summary.Status = "unknown"
+	}
+	return summary
+}
+
+func buildCheckerCommentSummary(check Check) checkerCommentSummary {
+	summary := checkerCommentSummary{
+		Tool:      strings.TrimSpace(check.Tool),
+		Status:    normalizeCommentStatus(check.Status),
+		DurationS: check.DurationS,
+		Total:     len(check.Items),
+	}
+	if summary.Tool == "" {
+		summary.Tool = "unknown"
+	}
+	if summary.Status == "unknown" && len(check.Items) > 0 {
+		summary.Status = "passed"
+	}
+	for _, item := range check.Items {
+		itemStatus := normalizeCommentStatus(item.Status)
+		switch itemStatus {
+		case "passed":
+			summary.Passed++
+		case "failed", "error":
+			summary.Failed++
+		case "skipped":
+			summary.Skipped++
+		}
+		summary.Status = worstCommentStatus(summary.Status, itemStatus)
+	}
+	return summary
+}
+
+func worstCommentStatus(current, next string) string {
+	current = normalizeCommentStatus(current)
+	next = normalizeCommentStatus(next)
+	rank := map[string]int{
+		"unknown":   0,
+		"passed":    1,
+		"skipped":   2,
+		"cancelled": 3,
+		"error":     4,
+		"failed":    5,
+	}
+	if rank[next] > rank[current] {
+		return next
+	}
+	return current
+}
+
 func renderPRComment(run Run, reportURL string, baseline *Run, options commentRenderOptions) string {
 	shortSHA := strings.TrimSpace(run.SHA)
 	if shortSHA == "" {
@@ -224,44 +326,50 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 		resolvedURL = "#/run/" + run.RunID
 	}
 
+	summary := buildCommentSummary(run)
+
 	var b strings.Builder
 	b.WriteString("<!-- cairn:comment -->\n")
-	b.WriteString("### Cairn Quality Report\n\n")
-	b.WriteString("**Commit:** `")
+	b.WriteString("## Cairn Quality Report\n\n")
+	b.WriteString("Commit: `")
 	b.WriteString(shortSHA)
-	b.WriteString("` · [View full report](")
+	b.WriteString("` - [View full report](")
 	b.WriteString(resolvedURL)
 	b.WriteString(")\n\n")
+	b.WriteString("Overall: ")
+	b.WriteString(summary.Status)
+	b.WriteString("\n\n")
 
 	if len(run.Checks) == 0 {
 		b.WriteString("No checks were recorded for this run.\n")
 		return b.String()
 	}
 
-	b.WriteString("| Checker | Status | ✅ Passed | ❌ Failed | Items |\n")
-	b.WriteString("| --- | --- | ---: | ---: | ---: |\n")
+	renderCheckerBadges(&b, run.Checks)
+
+	b.WriteString("### Checker Summary\n\n")
+	b.WriteString("| Checker | Status | Passed | Failed | Skipped | Items | Time |\n")
+	b.WriteString("| --- | --- | ---: | ---: | ---: | ---: | ---: |\n")
 	for _, check := range run.Checks {
-		var passCount, failCount int
-		for _, item := range check.Items {
-			switch item.Status {
-			case "passed":
-				passCount++
-			case "failed", "error":
-				failCount++
-			}
-		}
+		checkSummary := buildCheckerCommentSummary(check)
 		b.WriteString("| ")
-		b.WriteString(strings.TrimSpace(check.Tool))
+		b.WriteString(markdownTableCell(checkSummary.Tool))
 		b.WriteString(" | ")
-		b.WriteString(strings.TrimSpace(check.Status))
+		b.WriteString(markdownTableCell(checkSummary.Status))
 		b.WriteString(" | ")
-		b.WriteString(fmt.Sprintf("%d", passCount))
+		b.WriteString(fmt.Sprintf("%d", checkSummary.Passed))
 		b.WriteString(" | ")
-		b.WriteString(fmt.Sprintf("%d", failCount))
+		b.WriteString(fmt.Sprintf("%d", checkSummary.Failed))
 		b.WriteString(" | ")
-		b.WriteString(fmt.Sprintf("%d", len(check.Items)))
+		b.WriteString(fmt.Sprintf("%d", checkSummary.Skipped))
+		b.WriteString(" | ")
+		b.WriteString(fmt.Sprintf("%d", checkSummary.Total))
+		b.WriteString(" | ")
+		b.WriteString(formatCommentDuration(checkSummary.DurationS))
 		b.WriteString(" |\n")
 	}
+
+	renderFailureDetails(&b, run.Checks)
 
 	if options.showPerMatrix && len(run.Matrix) > 0 {
 		keys := make([]string, 0, len(run.Matrix))
@@ -275,7 +383,7 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 			b.WriteString("- ")
 			b.WriteString(key)
 			b.WriteString(": `")
-			b.WriteString(run.Matrix[key])
+			b.WriteString(markdownInlineCode(run.Matrix[key]))
 			b.WriteString("`\n")
 		}
 	}
@@ -290,17 +398,17 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 				b.WriteString("\n#### Traceability\n\n")
 				if len(traceability.RequirementIDs) > 0 {
 					b.WriteString("- Requirements: `")
-					b.WriteString(strings.Join(traceability.RequirementIDs, "`, `"))
+					b.WriteString(strings.Join(markdownInlineCodeValues(traceability.RequirementIDs), "`, `"))
 					b.WriteString("`\n")
 				}
 				if len(traceability.SpecIDs) > 0 {
 					b.WriteString("- Specs: `")
-					b.WriteString(strings.Join(traceability.SpecIDs, "`, `"))
+					b.WriteString(strings.Join(markdownInlineCodeValues(traceability.SpecIDs), "`, `"))
 					b.WriteString("`\n")
 				}
 				if len(traceability.RiskIDs) > 0 {
 					b.WriteString("- Risks: `")
-					b.WriteString(strings.Join(traceability.RiskIDs, "`, `"))
+					b.WriteString(strings.Join(markdownInlineCodeValues(traceability.RiskIDs), "`, `"))
 					b.WriteString("`\n")
 				}
 				if msg := strings.TrimSpace(traceability.CommitMessage); msg != "" {
@@ -317,11 +425,11 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 			b.WriteString("| --- | --- | --- | ---: |\n")
 			for _, artifact := range provenance.Artifacts {
 				b.WriteString("| ")
-				b.WriteString(strings.TrimSpace(artifact.Role))
+				b.WriteString(markdownTableCell(artifact.Role))
 				b.WriteString(" | ")
-				b.WriteString(strings.TrimSpace(artifact.Path))
+				b.WriteString(markdownTableCell(artifact.Path))
 				b.WriteString(" | ")
-				b.WriteString(strings.TrimSpace(artifact.SHA256))
+				b.WriteString(markdownTableCell(artifact.SHA256))
 				b.WriteString(" | ")
 				if artifact.SizeBytes > 0 {
 					b.WriteString(fmt.Sprintf("%d bytes", artifact.SizeBytes))
@@ -356,7 +464,7 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 					for _, checkID := range checkIDs {
 						metrics := coverage.PerCheck[checkID]
 						b.WriteString("| ")
-						b.WriteString(checkID)
+						b.WriteString(markdownTableCell(checkID))
 						b.WriteString(" | ")
 						b.WriteString(renderCoverageMetric(metrics.Line))
 						b.WriteString(" | ")
@@ -373,40 +481,186 @@ func renderPRComment(run Run, reportURL string, baseline *Run, options commentRe
 	if baseline != nil {
 		newFailures, fixed := diffItems(run, *baseline)
 
+		b.WriteString("\n### Baseline Changes\n\n")
+		b.WriteString("Compared with `")
+		b.WriteString(markdownInlineCode(baseline.Branch))
+		b.WriteString("`: ")
+		b.WriteString(pluralizeCount(len(newFailures), "new failure", "new failures"))
+		b.WriteString(", ")
+		b.WriteString(pluralizeCount(len(fixed), "fixed", "fixed"))
+		b.WriteString(".\n")
+
 		if len(newFailures) > 0 {
-			b.WriteString("\n#### 🆕 New Failures (vs `")
-			b.WriteString(baseline.Branch)
+			b.WriteString("\n#### New Failures (vs `")
+			b.WriteString(markdownInlineCode(baseline.Branch))
 			b.WriteString("`)\n\n")
 			b.WriteString("| Checker | Test | Status |\n")
 			b.WriteString("| --- | --- | --- |\n")
 			for _, nf := range newFailures {
 				b.WriteString("| ")
-				b.WriteString(nf.Checker)
+				b.WriteString(markdownTableCell(nf.Checker))
 				b.WriteString(" | ")
-				b.WriteString(nf.ItemID)
+				b.WriteString(markdownTableCell(nf.ItemID))
 				b.WriteString(" | ")
-				b.WriteString(nf.Status)
+				b.WriteString(markdownTableCell(normalizeCommentStatus(nf.Status)))
 				b.WriteString(" |\n")
 			}
 		}
 
 		if len(fixed) > 0 {
-			b.WriteString("\n#### ✅ Fixed (vs `")
-			b.WriteString(baseline.Branch)
+			b.WriteString("\n#### Fixed (vs `")
+			b.WriteString(markdownInlineCode(baseline.Branch))
 			b.WriteString("`)\n\n")
 			b.WriteString("| Checker | Test |\n")
 			b.WriteString("| --- | --- |\n")
 			for _, f := range fixed {
 				b.WriteString("| ")
-				b.WriteString(f.Checker)
+				b.WriteString(markdownTableCell(f.Checker))
 				b.WriteString(" | ")
-				b.WriteString(f.ItemID)
+				b.WriteString(markdownTableCell(f.ItemID))
 				b.WriteString(" |\n")
 			}
 		}
 	}
 
 	return b.String()
+}
+
+func renderCheckerBadges(b *strings.Builder, checks []Check) {
+	for i, check := range checks {
+		if i > 0 {
+			b.WriteString(" ")
+		}
+		checkSummary := buildCheckerCommentSummary(check)
+		label := url.PathEscape(checkSummary.Tool)
+		value := url.PathEscape(checkSummary.Status)
+		b.WriteString("![")
+		b.WriteString(checkSummary.Tool)
+		b.WriteString("](https://img.shields.io/badge/")
+		b.WriteString(label)
+		b.WriteString("-")
+		b.WriteString(value)
+		b.WriteString("-")
+		b.WriteString(commentBadgeColor(checkSummary.Status))
+		b.WriteString("?style=flat-square)")
+	}
+	b.WriteString("\n\n")
+}
+
+func commentBadgeColor(status string) string {
+	switch normalizeCommentStatus(status) {
+	case "passed":
+		return "brightgreen"
+	case "failed", "error":
+		return "red"
+	case "cancelled":
+		return "orange"
+	case "skipped":
+		return "lightgrey"
+	default:
+		return "blue"
+	}
+}
+
+func renderFailureDetails(b *strings.Builder, checks []Check) {
+	type failure struct {
+		checker string
+		item    Item
+		status  string
+	}
+	var failures []failure
+	for _, check := range checks {
+		for _, item := range check.Items {
+			status := normalizeCommentStatus(item.Status)
+			if status == "failed" || status == "error" {
+				failures = append(failures, failure{
+					checker: strings.TrimSpace(check.Tool),
+					item:    item,
+					status:  status,
+				})
+			}
+		}
+	}
+	if len(failures) == 0 {
+		return
+	}
+
+	const maxFailures = 20
+	b.WriteString("\n### Failures\n\n")
+	b.WriteString("| Checker | Item | Status | Message |\n")
+	b.WriteString("| --- | --- | --- | --- |\n")
+	for i, failure := range failures {
+		if i >= maxFailures {
+			break
+		}
+		b.WriteString("| ")
+		b.WriteString(markdownTableCell(failure.checker))
+		b.WriteString(" | ")
+		b.WriteString(markdownTableCell(failure.item.ID))
+		b.WriteString(" | ")
+		b.WriteString(markdownTableCell(failure.status))
+		b.WriteString(" | ")
+		b.WriteString(markdownTableCell(commentFailureMessage(failure.item)))
+		b.WriteString(" |\n")
+	}
+	if len(failures) > maxFailures {
+		b.WriteString("\n")
+		b.WriteString(fmt.Sprintf("_Showing first %d of %d failing items._\n", maxFailures, len(failures)))
+	}
+}
+
+func commentFailureMessage(item Item) string {
+	for _, candidate := range []string{item.Message, item.Stderr, item.Stdout, item.Trace} {
+		candidate = strings.TrimSpace(candidate)
+		if candidate != "" {
+			return candidate
+		}
+	}
+	if item.Source != nil && strings.TrimSpace(item.Source.File) != "" {
+		if item.Source.Line > 0 {
+			return fmt.Sprintf("%s:%d", item.Source.File, item.Source.Line)
+		}
+		return item.Source.File
+	}
+	return "-"
+}
+
+func markdownTableCell(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "-"
+	}
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.ReplaceAll(value, "|", `\|`)
+	value = strings.ReplaceAll(value, "\n", "<br>")
+	return value
+}
+
+func markdownInlineCode(value string) string {
+	return strings.ReplaceAll(strings.TrimSpace(value), "`", "'")
+}
+
+func markdownInlineCodeValues(values []string) []string {
+	escaped := make([]string, 0, len(values))
+	for _, value := range values {
+		escaped = append(escaped, markdownInlineCode(value))
+	}
+	return escaped
+}
+
+func formatCommentDuration(seconds float64) string {
+	if seconds <= 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%.0fs", seconds)
+}
+
+func pluralizeCount(count int, singular, plural string) string {
+	if count == 1 {
+		return fmt.Sprintf("%d %s", count, singular)
+	}
+	return fmt.Sprintf("%d %s", count, plural)
 }
 
 func renderCoverageMetric(metric *RunCoverageMetric) string {

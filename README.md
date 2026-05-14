@@ -85,6 +85,10 @@ This is enough for the default flow: collect -> ingest -> render report -> push 
 
 Without `comment-token`, comments are posted as `github-actions[bot]`.
 
+PR comments include the commit and report link, an overall status, per-checker badges,
+a checker summary table, failing item details, and baseline changes when history is
+available.
+
 ## Inputs
 
 Primary inputs:
