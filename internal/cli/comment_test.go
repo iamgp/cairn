@@ -43,6 +43,79 @@ func TestParseCommentCommandArgs(t *testing.T) {
 	}
 }
 
+func TestNormalizeCommentStatus(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"pass":       "passed",
+		"passed":     "passed",
+		"success":    "passed",
+		"fail":       "failed",
+		"failed":     "failed",
+		"failure":    "failed",
+		"error":      "error",
+		"skip":       "skipped",
+		"skipped":    "skipped",
+		"cancelled":  "cancelled",
+		"":           "unknown",
+		"  custom  ": "custom",
+	}
+
+	for input, want := range cases {
+		if got := normalizeCommentStatus(input); got != want {
+			t.Fatalf("normalizeCommentStatus(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestBuildCommentSummaryCountsNormalizedStatuses(t *testing.T) {
+	t.Parallel()
+
+	run := Run{
+		Checks: []Check{
+			{
+				Tool:      "pytest",
+				Status:    "success",
+				DurationS: 2.5,
+				Items: []Item{
+					{ID: "test_a", Status: "pass"},
+					{ID: "test_b", Status: "skipped"},
+				},
+			},
+			{
+				Tool:      "ruff",
+				Status:    "failed",
+				DurationS: 1.25,
+				Items: []Item{
+					{ID: "F401", Status: "fail"},
+					{ID: "F821", Status: "error"},
+				},
+			},
+		},
+	}
+
+	summary := buildCommentSummary(run)
+	if summary.Status != "failed" {
+		t.Fatalf("unexpected overall status %q", summary.Status)
+	}
+	if summary.Total != 4 || summary.Passed != 1 || summary.Failed != 2 || summary.Skipped != 1 {
+		t.Fatalf("unexpected totals: %#v", summary)
+	}
+	if summary.DurationS != 3.75 {
+		t.Fatalf("unexpected duration: %f", summary.DurationS)
+	}
+}
+
+func TestMarkdownTableCellEscapesUnsafeContent(t *testing.T) {
+	t.Parallel()
+
+	got := markdownTableCell("a | b\n`c`")
+	want := "a \\| b<br>`c`"
+	if got != want {
+		t.Fatalf("markdownTableCell() = %q, want %q", got, want)
+	}
+}
+
 func TestCommentCommandWritesOutputFile(t *testing.T) {
 	t.Parallel()
 
@@ -87,13 +160,15 @@ func TestCommentCommandWritesOutputFile(t *testing.T) {
 	}
 	content := string(outRaw)
 	assertContains(t, content, "<!-- cairn:comment -->")
-	assertContains(t, content, "### Cairn Quality Report")
-	assertContains(t, content, "**Commit:** `abc1234`")
+	assertContains(t, content, "## Cairn Quality Report")
+	assertContains(t, content, "Commit: `abc1234`")
 	assertContains(t, content, "[View full report](https://example.test/cairn)")
-	assertContains(t, content, "| ruff | failed | 0 | 1 | 1 |")
+	assertContains(t, content, "Overall: failed")
+	assertContains(t, content, "https://img.shields.io/badge/ruff-failed-red?style=flat-square")
+	assertContains(t, content, "| ruff | failed | 0 | 1 | 0 | 1 | - |")
 }
 
-func TestRenderPRCommentWithCounts(t *testing.T) {
+func TestRenderPRCommentWithRichSummary(t *testing.T) {
 	t.Parallel()
 
 	run := Run{
@@ -101,12 +176,14 @@ func TestRenderPRCommentWithCounts(t *testing.T) {
 		SHAFull: "abcdef1234567",
 		Checks: []Check{
 			{
-				Tool:   "pytest",
-				Status: "failed",
+				Tool:      "pytest|3.12",
+				Status:    "failure",
+				DurationS: 66.4,
 				Items: []Item{
-					{ID: "test_a", Status: "passed"},
+					{ID: "test_a", Status: "pass"},
 					{ID: "test_b", Status: "passed"},
-					{ID: "test_c", Status: "failed"},
+					{ID: "test_c|param", Status: "fail", Message: "expected true\nactual false"},
+					{ID: "test_d", Status: "skip"},
 				},
 			},
 		},
@@ -116,9 +193,15 @@ func TestRenderPRCommentWithCounts(t *testing.T) {
 		showCoverage:  true,
 		showPerMatrix: true,
 	})
-	assertContains(t, content, "| pytest | failed | 2 | 1 | 3 |")
-	assertContains(t, content, "✅ Passed")
-	assertContains(t, content, "❌ Failed")
+	assertContains(t, content, "## Cairn Quality Report")
+	assertContains(t, content, "Overall: failed")
+	assertContains(t, content, "https://img.shields.io/badge/pytest%7C3.12-failed-red?style=flat-square")
+	assertContains(t, content, "### Checker Summary")
+	assertContains(t, content, "| Checker | Status | Passed | Failed | Skipped | Items | Time |")
+	assertContains(t, content, "| pytest\\|3.12 | failed | 2 | 1 | 1 | 4 | 66s |")
+	assertContains(t, content, "### Failures")
+	assertContains(t, content, "| pytest\\|3.12 | test_c\\|param | failed | expected true<br>actual false |")
+	assertNoEmoji(t, content)
 }
 
 func TestRenderPRCommentWithBaseline(t *testing.T) {
@@ -158,10 +241,13 @@ func TestRenderPRCommentWithBaseline(t *testing.T) {
 		showCoverage:  true,
 		showPerMatrix: true,
 	})
-	assertContains(t, content, "#### 🆕 New Failures (vs `main`)")
+	assertContains(t, content, "### Baseline Changes")
+	assertContains(t, content, "Compared with `main`: 1 new failure, 1 fixed.")
+	assertContains(t, content, "#### New Failures (vs `main`)")
 	assertContains(t, content, "| pytest | test_a | failed |")
-	assertContains(t, content, "#### ✅ Fixed (vs `main`)")
+	assertContains(t, content, "#### Fixed (vs `main`)")
 	assertContains(t, content, "| pytest | test_b |")
+	assertNoEmoji(t, content)
 }
 
 func TestRenderPRCommentNoChecks(t *testing.T) {
