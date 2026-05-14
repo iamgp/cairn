@@ -5,5 +5,7 @@ web/node_modules/
 web/.output/
 web/.tanstack/
 web/.nitro/
+internal/cli/web-assets/*
+!internal/cli/web-assets/keep.txt
 .claude/napkin
 .claude/napkin.md

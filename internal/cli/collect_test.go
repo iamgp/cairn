@@ -329,3 +329,71 @@ func TestCollectCommandBuildsRunRecordFromConfig(t *testing.T) {
 		t.Fatalf("unexpected check tools: %#v", run.Checks)
 	}
 }
+
+func TestCollectChecksOptionalMissingInputProducesSkippedCheck(t *testing.T) {
+	t.Parallel()
+
+	cfg := cairnConfig{
+		Project: cairnProjectConfig{Name: "demo"},
+		Checkers: []cairnCheckerConfig{
+			{
+				ID:            "pytest",
+				Adapter:       "junit_xml",
+				Input:         filepath.Join(t.TempDir(), "missing.xml"),
+				Required:      boolPtr(false),
+				MissingStatus: "skipped",
+			},
+		},
+	}
+
+	checks, err := collectChecks(cfg, nil)
+	if err != nil {
+		t.Fatalf("collect checks: %v", err)
+	}
+	if len(checks) != 1 {
+		t.Fatalf("expected one check, got %d", len(checks))
+	}
+	if checks[0].Tool != "pytest" {
+		t.Fatalf("expected tool pytest, got %q", checks[0].Tool)
+	}
+	if checks[0].Status != "skipped" {
+		t.Fatalf("expected skipped status, got %q", checks[0].Status)
+	}
+	if len(checks[0].Items) != 1 {
+		t.Fatalf("expected one explanatory item, got %d", len(checks[0].Items))
+	}
+	if checks[0].Items[0].ID != "pytest-missing-input" {
+		t.Fatalf("unexpected item id %q", checks[0].Items[0].ID)
+	}
+}
+
+func TestLoadCairnConfigRejectsUnsupportedMissingStatus(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "cairn.toml")
+	config := strings.Join([]string{
+		"[project]",
+		`name = "demo"`,
+		"",
+		"[[checkers]]",
+		`id = "pytest"`,
+		`adapter = "junit_xml"`,
+		`input = "pytest.xml"`,
+		`missing_status = "unknown"`,
+	}, "\n")
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := loadCairnConfig(configPath)
+	if err == nil {
+		t.Fatal("expected unsupported missing_status error")
+	}
+	if !strings.Contains(err.Error(), "unsupported missing_status") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}

@@ -1,0 +1,1 @@
+Generated report assets are copied here before release builds.

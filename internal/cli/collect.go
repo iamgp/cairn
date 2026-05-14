@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -41,10 +42,12 @@ type cairnPRCommentConfig struct {
 }
 
 type cairnCheckerConfig struct {
-	ID      string             `toml:"id"`
-	Adapter string             `toml:"adapter"`
-	Input   string             `toml:"input"`
-	Mapping genericJSONMapping `toml:"mapping"`
+	ID            string             `toml:"id"`
+	Adapter       string             `toml:"adapter"`
+	Input         string             `toml:"input"`
+	Required      *bool              `toml:"required"`
+	MissingStatus string             `toml:"missing_status"`
+	Mapping       genericJSONMapping `toml:"mapping"`
 }
 
 type collectOptions struct {
@@ -529,6 +532,11 @@ func loadCairnConfig(path string) (cairnConfig, error) {
 		if strings.TrimSpace(checker.Input) == "" {
 			return cairnConfig{}, fmt.Errorf("config [[checkers]] entry %d is missing input", i+1)
 		}
+		switch checkerMissingStatus(checker) {
+		case "skipped", "error", "failed":
+		default:
+			return cairnConfig{}, fmt.Errorf("config [[checkers]] entry %d has unsupported missing_status %q", i+1, checker.MissingStatus)
+		}
 	}
 
 	return cfg, nil
@@ -551,6 +559,37 @@ func boolPointerOrDefault(value *bool, fallback bool) bool {
 		return fallback
 	}
 	return *value
+}
+
+func checkerRequired(checker cairnCheckerConfig) bool {
+	return boolPointerOrDefault(checker.Required, true)
+}
+
+func checkerMissingStatus(checker cairnCheckerConfig) string {
+	status := strings.TrimSpace(checker.MissingStatus)
+	if status == "" {
+		return "skipped"
+	}
+	return status
+}
+
+func missingInputCheck(checker cairnCheckerConfig) Check {
+	status := checkerMissingStatus(checker)
+	return Check{
+		Tool:      checker.ID,
+		Status:    status,
+		DurationS: 0,
+		Summary: map[string]int{
+			status: 1,
+		},
+		Items: []Item{
+			{
+				ID:      checker.ID + "-missing-input",
+				Status:  status,
+				Message: "Configured checker input was not found: " + checker.Input,
+			},
+		},
+	}
 }
 
 func collectChecks(cfg cairnConfig, matrix map[string]string) ([]Check, error) {
@@ -578,6 +617,10 @@ func collectChecks(cfg cairnConfig, matrix map[string]string) ([]Check, error) {
 			return nil, fmt.Errorf("unsupported adapter %q for checker %q", adapter, checker.ID)
 		}
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) && !checkerRequired(checker) {
+				checks = append(checks, missingInputCheck(checker))
+				continue
+			}
 			return nil, fmt.Errorf("collect checker %q: %w", checker.ID, err)
 		}
 

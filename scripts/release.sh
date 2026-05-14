@@ -20,6 +20,19 @@ require_cmd() {
   fi
 }
 
+build_web_assets() {
+  local repo_root="$1"
+
+  cd "${repo_root}/web"
+  npm ci --no-audit --no-fund
+  npm run build:pages
+
+  cd "${repo_root}"
+  mkdir -p internal/cli/web-assets
+  find internal/cli/web-assets -mindepth 1 ! -name 'keep.txt' -exec rm -rf {} +
+  cp -R web/.output/public/. internal/cli/web-assets/
+}
+
 detect_repo() {
   if [ -n "${GH_REPO:-}" ]; then
     printf '%s\n' "${GH_REPO}"
@@ -68,6 +81,7 @@ main() {
   require_cmd git
   require_cmd go
   require_cmd gh
+  require_cmd npm
   require_cmd tar
   require_cmd mktemp
 
@@ -90,6 +104,7 @@ main() {
   git archive "${tag}" | tar -x -C "${WORKDIR}"
 
   cd "${WORKDIR}"
+  build_web_assets "${WORKDIR}"
   mkdir -p dist
 
   local targets=(
