@@ -25,6 +25,7 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		"using: \"composite\"",
 		"uses: actions/checkout@v4",
 		"ref: ${{ inputs.gh-pages-branch }}",
+		"fetch-depth: 1",
 		"continue-on-error: true",
 		"Bootstrap missing gh-pages branch",
 		"RUNNER_OS",
@@ -56,6 +57,17 @@ func TestActionYMLIncludesRequiredIngestWorkflow(t *testing.T) {
 		if !strings.Contains(content, needle) {
 			t.Fatalf("action.yml missing expected content: %q", needle)
 		}
+	}
+}
+
+func TestActionDoesNotFetchFullHistoryForPagesCheckout(t *testing.T) {
+	raw, err := os.ReadFile("../../action.yml")
+	if err != nil {
+		t.Fatalf("read action.yml: %v", err)
+	}
+
+	if strings.Contains(string(raw), "fetch-depth: 0") {
+		t.Fatal("action.yml should not fetch full history for Pages checkout")
 	}
 }
 
